@@ -39,25 +39,14 @@ import type { RestoredProject } from '@/lib/storage/project';
 import { clearProjectData, loadKeymap, loadRecentProject, saveKeymap, saveRecentProject } from '@/lib/storage/recent-project';
 import { clearPreferences, loadPreferences, savePreferences } from '@/lib/storage/preferences';
 
-const demoMml = 't139r2.v7o4d8f8g4.r4g8f8e8f8g4.r4a8b8>c4.<b8a8g8f8e4.r4d8f8g4.';
-const demoTracks: TrackSnapshot[] = [
-  {
-    index: 0,
-    name: 'Main piano',
-    instrument: { name: 'Acoustic Grand Piano', program: 0, channel: 0 },
-    mml: demoMml,
-    mml_note_length: 842,
-    playback_events: [],
-  },
-  {
-    index: 1,
-    name: 'Melody',
-    instrument: { name: 'Bright Acoustic Piano', program: 1, channel: 1 },
-    mml: demoMml,
-    mml_note_length: 316,
-    playback_events: [],
-  },
-];
+const emptyTrack: TrackSnapshot = {
+  index: 0,
+  name: '',
+  instrument: { name: '', program: 0, channel: 0 },
+  mml: '',
+  mml_note_length: 0,
+  playback_events: [],
+};
 
 export default function Home() {
   const input = useRef<HTMLInputElement>(null);
@@ -82,8 +71,8 @@ export default function Home() {
   const [keymapText, setKeymapText] = useState('{\n  "60": 72\n}');
   const [recentProject, setRecentProject] = useState<RestoredProject>();
 
-  const tracks = snapshot?.tracks ?? demoTracks;
-  const selected = tracks[activeTrack] ?? tracks[0];
+  const tracks = snapshot?.tracks ?? [];
+  const selected = tracks[activeTrack] ?? tracks[0] ?? emptyTrack;
 
   useEffect(() => () => {
     converter.current?.dispose();
@@ -315,8 +304,8 @@ export default function Home() {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{sourceName ?? 'Choose or drop a MIDI file here'}</p>
               <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{tracks.length} track</span><span>•</span><span>PPQ {snapshot?.ppq ?? 480}</span>
-                <Badge variant="secondary">{snapshot ? 'Converted' : 'Preview'}</Badge>
+                <span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span><span>•</span><span>PPQ {snapshot?.ppq ?? '—'}</span>
+                <Badge variant="secondary">{snapshot ? 'Converted' : 'Empty'}</Badge>
               </div>
             </div>
           </div>
