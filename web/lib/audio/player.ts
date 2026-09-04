@@ -147,6 +147,7 @@ export class BrowserMidiPlayer {
       const { WorkletSynthesizer } = await import('spessasynth_lib');
       await this.context!.audioWorklet.addModule('/spessasynth/spessasynth_processor.min.js');
       const synth = new WorkletSynthesizer(this.context!);
+      synth.connect(this.context!.destination);
       const response = await fetch('/soundfonts/generaluser-gs.sf2');
       if (!response.ok) throw new Error(`SoundFont failed to load (${response.status}).`);
       await synth.soundBankManager.addSoundBank(await response.arrayBuffer(), 'reve-midi-gm');
