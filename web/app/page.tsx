@@ -388,7 +388,7 @@ export default function Home() {
   });
 
   return (
-    <main className="min-h-dvh bg-background pb-20 text-foreground">
+    <main className="app-shell min-h-dvh pb-20 text-foreground">
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur-md">
         <div className="mx-auto flex min-h-18 max-w-[1440px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
@@ -529,7 +529,7 @@ export default function Home() {
 
         {snapshot ? (
           <div className="grid items-start gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_300px]">
-            <Card className="h-fit gap-0 overflow-hidden py-0 shadow-[0_12px_40px_oklch(0.25_0.02_58/0.06)]">
+            <Card className="h-fit gap-0 overflow-hidden py-0 shadow-[0_18px_60px_oklch(0.06_0.05_300/0.5)]">
               <CardHeader className="flex-row items-center justify-between border-b px-4 py-3">
                 <CardTitle className="text-sm">Track</CardTitle>
                 <Badge variant="outline">{tracks.length}</Badge>
@@ -560,7 +560,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-[0_12px_40px_oklch(0.25_0.02_58/0.06)]">
+            <Card className="min-w-0 gap-0 overflow-hidden py-0 shadow-[0_18px_60px_oklch(0.06_0.05_300/0.5)]">
               <CardHeader className="flex-row items-center justify-between border-b px-4 py-3">
                 <div className="min-w-0">
                   <CardTitle className="truncate text-sm">
@@ -673,7 +673,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="h-fit gap-0 overflow-hidden py-0 shadow-[0_12px_40px_oklch(0.25_0.02_58/0.06)] md:col-span-2 xl:col-span-1">
+            <Card className="h-fit gap-0 overflow-hidden py-0 shadow-[0_18px_60px_oklch(0.06_0.05_300/0.5)] md:col-span-2 xl:col-span-1">
               <CardHeader className="flex-row items-center gap-2 border-b px-4 py-3">
                 <Settings2 className="size-4" />
                 <CardTitle className="text-sm">Song options</CardTitle>
