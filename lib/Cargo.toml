@@ -5,9 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.98"
-midly = "0.5.3"
-num_cpus = "1.17.0"
-rayon = "1.10.0"
+midly = { version = "0.5.3", default-features = false, features = ["std"] }
 tracing = "0.1.41"
 
 [dev-dependencies]
@@ -15,3 +13,5 @@ tempfile = "3.8"
 proptest = "1.4"
 lib_player = { path = "../lib_player" }
 tracing-subscriber = "0.3.19"
+serde_json = "1.0"
+sha2 = "0.10"

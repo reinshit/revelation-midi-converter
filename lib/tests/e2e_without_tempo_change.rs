@@ -1,5 +1,4 @@
 use midi_to_mml::{MmlEvent, MmlSong, MmlSongOptions, utils::compute_position_in_smallest_unit};
-use rayon::prelude::*;
 
 const MIDI_FILE_PATH: &str = "../assets/cloudless-yorushika.mid";
 
@@ -12,7 +11,7 @@ fn test_e2e() {
 }
 
 fn assert_notes(song: &MmlSong) {
-    song.tracks.par_iter().for_each(|track| {
+    song.tracks.iter().for_each(|track| {
         for (i, e) in track.events.iter().enumerate() {
             if let MmlEvent::Note(note) = e
                 && !note.is_part_of_chord
@@ -27,7 +26,7 @@ fn assert_notes(song: &MmlSong) {
 }
 
 fn assert_only_1_tempo_change(song: &MmlSong) {
-    song.tracks.par_iter().for_each(|t| {
+    song.tracks.iter().for_each(|t| {
         let count_tempo_events = t
             .events
             .iter()

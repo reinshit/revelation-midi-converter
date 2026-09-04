@@ -1,0 +1,19 @@
+[package]
+name = "reve-midi-windows"
+version = "0.1.0"
+edition = "2024"
+build = "build.rs"
+
+[dependencies]
+anyhow = "1.0"
+midi-to-mml = { path = "../../lib" }
+rfd = "0.15"
+slint = { version = "1.17", default-features = false, features = [
+    "backend-winit",
+    "compat-1-2",
+    "renderer-femtovg",
+    "std",
+] }
+
+[build-dependencies]
+slint-build = "1.17"

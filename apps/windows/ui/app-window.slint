@@ -1,0 +1,59 @@
+import { Button, HorizontalBox, LineEdit, TextEdit, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Revelation MIDI to MML";
+    width: 920px;
+    height: 640px;
+    min-width: 640px;
+    min-height: 420px;
+
+    in-out property <string> midi-path;
+    in-out property <string> mml-output;
+    in-out property <string> status-text: "Select a MIDI file";
+
+    callback browse-requested();
+    callback convert-requested();
+
+    VerticalBox {
+        padding: 16px;
+        spacing: 12px;
+
+        Text {
+            text: "Revelation MIDI to MML";
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        HorizontalBox {
+            spacing: 8px;
+
+            LineEdit {
+                text <=> root.midi-path;
+                placeholder-text: "MIDI file path";
+            }
+
+            Button {
+                text: "Browse";
+                clicked => { root.browse-requested(); }
+            }
+
+            Button {
+                text: "Convert";
+                enabled: root.midi-path != "";
+                clicked => { root.convert-requested(); }
+            }
+        }
+
+        TextEdit {
+            text <=> root.mml-output;
+            read-only: true;
+            wrap: word-wrap;
+            vertical-stretch: 1;
+        }
+
+        Text {
+            text: root.status-text;
+            color: #60646c;
+        }
+    }
+}

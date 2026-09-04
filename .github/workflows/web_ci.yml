@@ -1,0 +1,63 @@
+name: Web CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Test converter core
+        run: cargo test -p midi-to-mml
+
+      - name: Verify native parity fixtures
+        shell: pwsh
+        run: ./scripts/verify-parity-fixtures.ps1
+
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.100 --locked
+
+      - name: Build browser WASM
+        run: |
+          cargo build -p reve-midi-wasm --release --target wasm32-unknown-unknown
+          wasm-bindgen target/wasm32-unknown-unknown/release/reve_midi_wasm.wasm \
+            --target web \
+            --typescript \
+            --out-dir web/lib/wasm/pkg \
+            --out-name reve_midi_wasm
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install browser test runtime
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify web source and WASM parity
+        working-directory: web
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+          npm run test:wasm
+          npm run test:project
+          npm run build
+          npm run test:build
+          npm run test:browser

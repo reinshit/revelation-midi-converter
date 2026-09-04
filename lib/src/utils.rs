@@ -1,5 +1,4 @@
 use crate::{MmlSongOptions, mml_event::MmlEvent, mml_track::MmlTrack, pitch_class::PitchClass};
-use rayon::prelude::*;
 use std::convert::TryInto;
 
 pub fn compute_position_in_smallest_unit(events: &[MmlEvent], current_index: usize) -> usize {
@@ -67,7 +66,7 @@ pub fn equalize_tracks(track_a: &mut MmlTrack, track_b: &mut MmlTrack) {
 
 pub fn get_song_velocity_diff(song_options: &MmlSongOptions, tracks: &[MmlTrack]) -> u8 {
     let velocity_max: u8 = tracks
-        .par_iter()
+        .iter()
         .map(|track| get_highest_velocity(&track.events))
         .max()
         .unwrap_or(0);
@@ -77,7 +76,7 @@ pub fn get_song_velocity_diff(song_options: &MmlSongOptions, tracks: &[MmlTrack]
 
 pub fn auto_boot_song_velocity(tracks: &mut [MmlTrack], velocity_diff: u8) {
     tracks
-        .par_iter_mut()
+        .iter_mut()
         .for_each(|track| track.apply_boot_velocity(velocity_diff));
 }
 

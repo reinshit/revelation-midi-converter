@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-09-02",
+  "source_commit": "4b04592",
+  "environment": {
+    "os": "Windows",
+    "architecture": "x86_64",
+    "rust_toolchain": "nightly-2026-09-01",
+    "rustc": "1.100.0-nightly (0dfb098f3 2026-08-31)",
+    "msvc_build_tools": "17.14.39",
+    "windows_sdk": "10.0.26100.0"
+  },
+  "tests": {
+    "command": "cargo test -p midi-to-mml",
+    "unit_passed": 49,
+    "integration_passed": 2,
+    "failed": 0,
+    "ignored": 0
+  },
+  "golden_fixtures": {
+    "behavior_version": "rust-0.2.0-legacy",
+    "options": "default",
+    "count": 7,
+    "total_json_bytes": 17380850,
+    "all_source_hashes_verified": true,
+    "items": [
+      {"file": "cloudless-yorushika.default.json", "json_bytes": 1108127, "source_bytes": 14137, "tracks": 2, "bridge_events": 2081, "mml_events": 3775, "mml_chars": 9479},
+      {"file": "FIRE_BIRD_(full_ver_)_(BanG_Dream!_Roselia_9th_Single)_(piano_cover).default.json", "json_bytes": 1909162, "source_bytes": 25488, "tracks": 2, "bridge_events": 3403, "mml_events": 7745, "mml_chars": 23340},
+      {"file": "heart_beat-band.default.json", "json_bytes": 6613281, "source_bytes": 105729, "tracks": 19, "bridge_events": 12101, "mml_events": 30187, "mml_chars": 76980},
+      {"file": "hishokunosora.default.json", "json_bytes": 2046978, "source_bytes": 31838, "tracks": 3, "bridge_events": 3437, "mml_events": 8813, "mml_chars": 38187},
+      {"file": "My_Neighbor_Totoro_-_Joe_Hisaishi1900_followers_SP.default.json", "json_bytes": 1173342, "source_bytes": 14534, "tracks": 2, "bridge_events": 2114, "mml_events": 4489, "mml_chars": 13383},
+      {"file": "Stay_With_Me_-_Miki_Matsubara.default.json", "json_bytes": 1208862, "source_bytes": 14680, "tracks": 2, "bridge_events": 2219, "mml_events": 4475, "mml_chars": 12664},
+      {"file": "Yorushika - Rain with Cappuccino.default.json", "json_bytes": 3321098, "source_bytes": 40501, "tracks": 7, "bridge_events": 6109, "mml_events": 12672, "mml_chars": 41655}
+    ]
+  },
+  "pending": {
+    "flutter_windows_release_size": "Flutter SDK unavailable",
+    "flutter_windows_startup": "Flutter SDK unavailable",
+    "flutter_windows_memory": "Flutter SDK unavailable",
+    "native_release_benchmark": "Scheduled after the Slint spike"
+  }
+}

@@ -5,4 +5,4 @@
 
 [workspace]
 resolver = "3"
-members = ["gui/native/*", "lib", "lib_player"]
+members = ["apps/windows", "gui/native/*", "lib", "lib_player", "wasm"]

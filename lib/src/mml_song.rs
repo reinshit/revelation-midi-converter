@@ -2,7 +2,6 @@ use std::{collections::HashMap, fs, path::Path};
 
 use anyhow::{Context, Result};
 use midly::{Smf, Timing, TrackEvent};
-use rayon::prelude::*;
 
 use crate::{
     MmlTrack,
@@ -159,7 +158,7 @@ impl MmlSong {
 
     pub fn set_song_options(&mut self, options: MmlSongOptions) -> Result<()> {
         self.options = options.clone();
-        self.tracks.par_iter_mut().for_each(|track| {
+        self.tracks.iter_mut().for_each(|track| {
             track.song_options = options.clone();
             track.generate_mml_events();
         });
@@ -183,7 +182,7 @@ fn bridge_events_to_tracks(
     ppq: u16,
 ) -> Vec<MmlTrack> {
     bridge_events
-        .into_par_iter()
+        .into_iter()
         .enumerate()
         .map(|(index, events)| {
             let options = song_options.to_owned();
@@ -195,14 +194,14 @@ fn bridge_events_to_tracks(
 
 fn get_bridge_note_events(smf_tracks: &Vec<Vec<TrackEvent>>) -> Vec<Vec<BridgeEvent>> {
     smf_tracks
-        .par_iter()
+        .iter()
         .map(bridge_notes_from_midi_track)
         .collect()
 }
 
 fn get_bridge_meta_events(smf_tracks: &Vec<Vec<TrackEvent>>) -> Vec<BridgeEvent> {
     smf_tracks
-        .par_iter()
+        .iter()
         .flat_map(bridge_meta_from_midi_track)
         .collect()
 }
@@ -211,5 +210,60 @@ fn get_ppq_from_smf(smf: &Smf) -> Option<u16> {
     match smf.header.timing {
         Timing::Metrical(ppq) => Some(ppq.as_int()),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MmlEvent;
+
+    fn midi_with_track(division: [u8; 2], track: &[u8]) -> Vec<u8> {
+        let mut bytes = b"MThd\0\0\0\x06\0\0\0\x01".to_vec();
+        bytes.extend_from_slice(&division);
+        bytes.extend_from_slice(b"MTrk");
+        bytes.extend_from_slice(&(track.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(track);
+        bytes
+    }
+
+    #[test]
+    fn rejects_malformed_midi() {
+        assert!(MmlSong::from_bytes(vec![1, 2, 3], MmlSongOptions::default()).is_err());
+    }
+
+    #[test]
+    fn accepts_an_empty_midi_track() {
+        let song = MmlSong::from_bytes(
+            midi_with_track([0x01, 0xe0], &[0x00, 0xff, 0x2f, 0x00]),
+            MmlSongOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(song.ppq, 480);
+        assert_eq!(song.tracks.len(), 1);
+        assert!(song.tracks[0].to_mml().is_empty());
+    }
+
+    #[test]
+    fn uses_legacy_ppq_fallback_for_smpte_timing() {
+        let song = MmlSong::from_bytes(
+            midi_with_track([0xe7, 0x28], &[0x00, 0xff, 0x2f, 0x00]),
+            MmlSongOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(song.ppq, 480);
+    }
+
+    #[test]
+    fn drops_a_note_without_note_off_instead_of_hanging() {
+        let song = MmlSong::from_bytes(
+            midi_with_track(
+                [0x01, 0xe0],
+                &[0x00, 0x90, 0x3c, 0x64, 0x00, 0xff, 0x2f, 0x00],
+            ),
+            MmlSongOptions::default(),
+        )
+        .unwrap();
+        assert!(song.tracks[0].events.iter().all(|event| !matches!(event, MmlEvent::Note(_))));
     }
 }
