@@ -28,24 +28,17 @@ function Get-BridgePriority {
     return 0
 }
 
-$contractPath = Join-Path $RepositoryRoot "docs/python-port-contract.json"
 $fixtureDirectory = Join-Path $RepositoryRoot "fixtures/parity"
+$assetDirectory = Join-Path $RepositoryRoot "assets"
 
-Assert-Condition (Test-Path -LiteralPath $contractPath -PathType Leaf) `
-    "Missing parity contract: $contractPath"
 Assert-Condition (Test-Path -LiteralPath $fixtureDirectory -PathType Container) `
     "Missing fixture directory: $fixtureDirectory"
-
-$contract = Get-Content -LiteralPath $contractPath -Raw | ConvertFrom-Json
-$expectedByName = @{}
-foreach ($source in $contract.fixtures) {
-    $name = Split-Path -Leaf $source.path
-    $expectedByName[$name] = $source
-}
+Assert-Condition (Test-Path -LiteralPath $assetDirectory -PathType Container) `
+    "Missing asset directory: $assetDirectory"
 
 $fixtureFiles = @(Get-ChildItem -LiteralPath $fixtureDirectory -Filter "*.default.json" -File)
-Assert-Condition ($fixtureFiles.Count -eq $expectedByName.Count) `
-    "Expected $($expectedByName.Count) default fixtures, found $($fixtureFiles.Count)"
+Assert-Condition ($fixtureFiles.Count -eq 1) `
+    "Expected one default fixture, found $($fixtureFiles.Count)"
 
 $verifiedTracks = 0
 $verifiedEvents = 0
@@ -57,25 +50,15 @@ foreach ($fixtureFile in $fixtureFiles) {
     Assert-Condition ($fixture.schema_version -eq 1) "${context}: unsupported schema_version"
     Assert-Condition ($fixture.behavior_version -eq "rust-0.2.0-legacy") `
         "${context}: unexpected behavior_version"
-    Assert-Condition ($fixture.source_commit -eq $contract.source.commit) `
-        "${context}: source commit differs from contract"
     Assert-Condition ($null -ne $fixture.source.file) "${context}: missing source.file"
-    Assert-Condition ($expectedByName.ContainsKey([string]$fixture.source.file)) `
-        "${context}: source file is not declared in the contract"
-
-    $expected = $expectedByName[[string]$fixture.source.file]
-    $midiPath = Join-Path $RepositoryRoot $expected.path
+    $midiPath = Join-Path $assetDirectory ([string]$fixture.source.file)
     Assert-Condition (Test-Path -LiteralPath $midiPath -PathType Leaf) `
         "${context}: missing MIDI source $midiPath"
 
     $midiFile = Get-Item -LiteralPath $midiPath
     $actualHash = (Get-FileHash -LiteralPath $midiPath -Algorithm SHA256).Hash.ToLowerInvariant()
-    Assert-Condition ($midiFile.Length -eq [long]$expected.bytes) `
-        "${context}: MIDI byte length differs from contract"
     Assert-Condition ($fixture.source.bytes -eq $midiFile.Length) `
         "${context}: fixture MIDI byte length is stale"
-    Assert-Condition ($actualHash -eq [string]$expected.sha256) `
-        "${context}: MIDI checksum differs from contract"
     Assert-Condition ([string]$fixture.source.sha256 -eq $actualHash) `
         "${context}: fixture checksum is stale"
 

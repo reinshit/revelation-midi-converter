@@ -1,6 +1,6 @@
 use midi_to_mml::{MmlEvent, MmlSong, MmlSongOptions, utils::compute_position_in_smallest_unit};
 
-const MIDI_FILE_PATH: &str = "../assets/cloudless-yorushika.mid";
+const MIDI_FILE_PATH: &str = "../assets/test.mid";
 
 #[test]
 fn test_e2e() {

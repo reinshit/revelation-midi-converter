@@ -1,7 +1,7 @@
 # MIDI-to-MML parity fixtures
 
-These files capture the observable converter state for the seven repository MIDI
-assets using `MmlSongOptions::default()` at source commit `4b04592`.
+These files capture the observable converter state for the repository test MIDI
+using `MmlSongOptions::default()`.
 
 Regenerate them from the repository root with:
 

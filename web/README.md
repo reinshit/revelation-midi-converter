@@ -32,8 +32,8 @@ npm run build
 npm run test:build
 ```
 
-The WASM parity test compares all default MIDI fixtures and the six mutation
-operations against outputs exported by the native Rust implementation.
+The WASM parity test compares the test MIDI fixture and six mutation operations
+against outputs exported by the native Rust implementation.
 
 ## Vercel
 

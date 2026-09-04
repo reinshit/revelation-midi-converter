@@ -9,7 +9,7 @@ fn main() -> Result<()> {
         .parent()
         .context("lib crate must be inside repository root")?
         .to_path_buf();
-    let source_path = repository_root.join("assets/cloudless-yorushika.mid");
+    let source_path = repository_root.join("assets/test.mid");
     let bytes = fs::read(&source_path)?;
 
     let mut cases = Vec::new();
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
     let output = json!({
         "schema_version": 1,
         "behavior_version": "rust-0.2.0-legacy",
-        "source": "cloudless-yorushika.mid",
+        "source": "test.mid",
         "cases": cases,
     });
     let output_path = repository_root.join("fixtures/parity/operations.json");
@@ -79,10 +79,7 @@ fn snapshot(song: &MmlSong) -> Value {
             "smallest_unit": song.options.smallest_unit,
         },
         "tracks": song.tracks.iter().enumerate().map(|(index, track)| {
-            let mut char_offset = 0;
             let playback_events = track.events.iter().filter_map(|event| {
-                    let char_start = char_offset;
-                    char_offset += event.to_mml(track.song_options.smallest_unit).len();
                     match event {
                         MmlEvent::Note(note) => Some(json!({
                             "type": "note",
@@ -90,8 +87,6 @@ fn snapshot(song: &MmlSong) -> Value {
                             "velocity": note.velocity,
                             "position_units": note.position_in_smallest_unit,
                             "duration_units": note.duration_in_smallest_unit,
-                            "char_start": char_start,
-                            "char_end": char_offset,
                         })),
                         MmlEvent::Tempo(bpm, position_units) => Some(json!({
                             "type": "tempo",

@@ -414,11 +414,18 @@ mod tests {
 
     #[test]
     fn test_fix_event_position() {
-        let (bridge_events, options, ppq) = test_utils::setup_bridge_events(MIDI_PATHS[1]);
+        let (bridge_events, options, ppq) = test_utils::setup_bridge_events(MIDI_PATHS[0]);
         let (mut events, _) = bridge_events_to_raw_mml_events(&bridge_events, &options, ppq);
         normalize_events(&mut events);
 
-        let i = fix_event_position(&mut events, 112);
+        let target = events
+            .iter()
+            .enumerate()
+            .find_map(|(index, event)| event.get_position().map(|_| index))
+            .expect("fixture must contain a positioned event");
+        let current = compute_position_in_smallest_unit(&events, target);
+        events[target].set_position(current + 1);
+        let i = fix_event_position(&mut events, target);
         let e = events.get(i).unwrap();
         debug!("Event: {e:?} at {i}");
         let computed = compute_position_in_smallest_unit(&events, i);

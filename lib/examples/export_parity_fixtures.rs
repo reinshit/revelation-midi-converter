@@ -9,7 +9,6 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 const BEHAVIOR_VERSION: &str = "rust-0.2.0-legacy";
-const SOURCE_COMMIT: &str = "4b04592";
 
 fn main() -> Result<()> {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -91,7 +90,6 @@ fn export_fixture(input: &Path, output_dir: &Path) -> Result<()> {
     let fixture = json!({
         "schema_version": 1,
         "behavior_version": BEHAVIOR_VERSION,
-        "source_commit": SOURCE_COMMIT,
         "source": {
             "file": source_name,
             "bytes": bytes.len(),

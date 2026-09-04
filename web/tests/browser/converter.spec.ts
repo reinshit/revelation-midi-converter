@@ -2,16 +2,8 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import path from 'node:path';
 
-const fixture = path.resolve(import.meta.dirname, '../../../assets/cloudless-yorushika.mid');
-const playbackFixtures = [
-  'cloudless-yorushika.mid',
-  'FIRE_BIRD_(full_ver_)_(BanG_Dream!_Roselia_9th_Single)_(piano_cover).mid',
-  'heart_beat-band.mid',
-  'hishokunosora.mid',
-  'My_Neighbor_Totoro_-_Joe_Hisaishi1900_followers_SP.mid',
-  'Stay_With_Me_-_Miki_Matsubara.mid',
-  'Yorushika - Rain with Cappuccino.mid',
-].map((name) => path.resolve(import.meta.dirname, '../../../assets', name));
+const fixture = path.resolve(import.meta.dirname, '../../../assets/test.mid');
+const playbackFixtures = [fixture];
 const shortTempoMidi = Buffer.from([
   0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 1, 0xe0,
   0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, 36,

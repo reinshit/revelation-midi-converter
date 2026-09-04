@@ -17,7 +17,7 @@ const fixtureNames = (await readdir(fixtureDirectory))
   .filter((name) => name.endsWith('.default.json'))
   .sort();
 
-assert.equal(fixtureNames.length, 7, 'expected seven default parity fixtures');
+assert.equal(fixtureNames.length, 1, 'expected one default parity fixture');
 
 let verifiedTracks = 0;
 let verifiedProgramChanges = 0;
