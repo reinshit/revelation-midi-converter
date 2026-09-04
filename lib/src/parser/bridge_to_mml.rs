@@ -125,7 +125,7 @@ fn handle_bridge_note_events(
         // B---------------B
         //            C---------------C
         //
-        // or like this 😱😱:
+        // or like this:
         // B---------------B
         //     C--------C
 

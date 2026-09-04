@@ -1,4 +1,4 @@
-# Revelation MIDI to MML — Web
+# Revelation MIDI to MML Web
 
 Static React application with the existing Rust converter compiled to
 WebAssembly. MIDI conversion runs locally in a Web Worker; no backend is used.

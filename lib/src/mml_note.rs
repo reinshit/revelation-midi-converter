@@ -162,7 +162,7 @@ mod tests {
 
         assert_eq!(mml_note.pitch_class, PitchClass::C);
         assert_eq!(mml_note.octave, 4); // Middle C is C4
-        assert_eq!(mml_note.velocity, 7); // 64/127 * 15 ≈ 7.55 -> 7
+        assert_eq!(mml_note.velocity, 7); // 64/127 * 15 is approximately 7.55, rounded down to 7
         assert_eq!(mml_note.position_in_smallest_unit, 0);
         assert_eq!(mml_note.duration_in_smallest_unit, 16); // Quarter note = 16/64
         assert!(!mml_note.is_part_of_chord);
@@ -236,7 +236,7 @@ mod tests {
         let test_cases = vec![
             (0, 0),    // Minimum MIDI velocity -> minimum MML velocity
             (127, 15), // Maximum MIDI velocity -> maximum MML velocity
-            (64, 7),   // Middle MIDI velocity -> middle MML velocity (64/127*15 ≈ 7.55 -> 7)
+            (64, 7),   // Middle MIDI velocity maps to 7 after rounding down
         ];
 
         for (midi_velocity, expected_mml_velocity) in test_cases {

@@ -281,7 +281,7 @@ export default function Home() {
             <Music2 className="size-5" />
           </div>
           <div>
-            <h1 className="text-[15px] font-semibold leading-none">Revelation MIDI → MML</h1>
+            <h1 className="text-[15px] font-semibold leading-none">Revelation MIDI to MML</h1>
             <p className="mt-1 text-[11px] text-muted-foreground">Processed locally in your browser</p>
           </div>
         </div>
@@ -304,7 +304,7 @@ export default function Home() {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{sourceName ?? 'Choose or drop a MIDI file here'}</p>
               <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span><span>•</span><span>PPQ {snapshot?.ppq ?? '—'}</span>
+                <span>{tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}</span><span>-</span><span>PPQ {snapshot?.ppq ?? 'N/A'}</span>
                 <Badge variant="secondary">{snapshot ? 'Converted' : 'Empty'}</Badge>
               </div>
             </div>
@@ -328,7 +328,7 @@ export default function Home() {
               <FolderOpen className="size-4" /> Choose MIDI
             </Button>
             <Button onClick={convert} disabled={busy}>
-              <Sparkles className="size-4" /> {busy ? 'Processing…' : 'Convert'}
+              <Sparkles className="size-4" /> {busy ? 'Processing...' : 'Convert'}
             </Button>
             <Button variant="outline" size="icon" title="Open project" onClick={() => projectInput.current?.click()}><FolderOpen className="size-4" /></Button>
             {recentProject && !snapshot ? <Button variant="outline" title="Restore last project" onClick={() => void restoreProjectState(recentProject)}><History className="size-4" /> Restore</Button> : null}
@@ -414,7 +414,7 @@ export default function Home() {
                 <span><span className="block text-sm font-medium">Auto boost velocity</span><span className="mt-1 block text-xs text-muted-foreground">Automatically raise quiet notes.</span></span>
                 <Switch checked={options.auto_boot_velocity} onCheckedChange={(checked) => void updateOptions({ auto_boot_velocity: checked })} aria-label="Auto boost velocity" />
               </div>
-              <OptionSlider label="Velocity range" value={`${options.velocity_min} — ${options.velocity_max}`} values={[options.velocity_min, options.velocity_max]} min={0} max={15} step={1} onChange={([velocity_min, velocity_max]) => void updateOptions({ velocity_min, velocity_max })} />
+              <OptionSlider label="Velocity range" value={`${options.velocity_min} - ${options.velocity_max}`} values={[options.velocity_min, options.velocity_max]} min={0} max={15} step={1} onChange={([velocity_min, velocity_max]) => void updateOptions({ velocity_min, velocity_max })} />
               <OptionSlider label="Smallest unit" value={`1/${options.smallest_unit}`} values={[options.smallest_unit]} min={16} max={128} step={16} onChange={([smallest_unit]) => void updateOptions({ smallest_unit })} />
               <OptionSlider label="Chord gap" value={String(options.min_gap_for_chord)} values={[options.min_gap_for_chord]} min={0} max={16} step={1} onChange={([min_gap_for_chord]) => void updateOptions({ min_gap_for_chord })} />
               <Button variant="outline" className="w-full" disabled={!snapshot} onClick={() => setKeymapOpen(true)}><KeyboardMusic className="size-4" /> Apply keymap</Button>
@@ -434,7 +434,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-3"><span className="w-10 font-mono text-[11px] text-muted-foreground">{formatTime(position)}</span><Slider value={[position]} max={Math.max(duration, 1)} aria-label="Playback position" /><span className="hidden w-10 font-mono text-[11px] text-muted-foreground sm:inline">{formatTime(duration)}</span></div>
           <div className="hidden items-center gap-2 sm:flex"><Volume2 className="size-4 text-muted-foreground" /><Slider className="w-20" value={[volume]} max={100} aria-label="Volume" onValueChange={(next) => { const value = typeof next === 'number' ? next : next[0]; setVolume(value); player.current?.setVolume(value / 100); }} /></div>
-          <span className="hidden text-[11px] text-muted-foreground lg:inline">{audioStatus === 'loading' ? 'Loading sounds…' : audioStatus === 'soundfont' ? 'SoundFont' : audioStatus === 'fallback' ? 'Basic audio fallback' : 'Audio idle'}</span>
+          <span className="hidden text-[11px] text-muted-foreground lg:inline">{audioStatus === 'loading' ? 'Loading sounds...' : audioStatus === 'soundfont' ? 'SoundFont' : audioStatus === 'fallback' ? 'Basic audio fallback' : 'Audio idle'}</span>
         </div>
       </footer>
 

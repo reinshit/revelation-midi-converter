@@ -1,133 +1,89 @@
-<div align="center">
-  <h1>Revelation mobile MIDI to MML</h1>
+# Revelation MIDI Converter
 
-  <p>
-    <a href="https://github.com/cuikho210/revelation-mobile-midi-to-mml/releases">Releases</a> - 
-    <a href="https://github.com/cuikho210/revelation-mobile-midi-to-mml?tab=readme-ov-file#donate">Donate</a>
-  </p>
+Revelation MIDI Converter is a browser-based MIDI to MML converter. Conversion,
+project storage, and playback run locally in the browser. The application does
+not require a backend and does not upload MIDI files.
 
-  <a href="https://play.google.com/store/apps/details?id=com.mtlkms.revelation_mobile_midi_to_mml">
-    <img src="./assets/google-play-badge.png" height="44" />
-  </a>
-  <a href="https://apps.microsoft.com/detail/9nwbrmhf4tlh">
-    <img src="https://get.microsoft.com/images/en-us%20dark.svg" height="44"/>
-  </a>
-  <br /> <br />
+Live application: https://revelation-midi-converter.vercel.app
 
-  <p>A tool used to convert MIDI files into MML code used in Revelation Mobile</p>
-</div>
+## Features
 
-## Why Choose This Tool?
+- Convert MIDI files to MML in the browser
+- Preview tracks with SoundFont playback
+- Split, merge, rename, equalize, and remap tracks
+- Configure velocity, chord gap, and note resolution
+- Save and restore local project files
+- Export generated MML
+- Run on current Chrome and Edge versions for Windows
 
-- Keep chords intact without splitting into multiple tracks
-- Fine-tune volume range for optimal sound balance
-- Automatically boost volume when needed
-- Easily split and merge tracks as desired
-- Integrated player with real-time highlighting
+## Architecture
 
-## MML Guide
+- React and TypeScript user interface
+- Vite production build
+- Rust conversion core compiled to WebAssembly
+- Web Worker conversion pipeline
+- IndexedDB and local storage for browser persistence
+- Web Audio and GeneralUser GS for playback
+- Static deployment on Vercel
 
-### Note
+## Development
 
-Syntax: `<note_name>[duration]`
+Requirements:
 
-**note_name**:  
-Represents the musical notes: C, D, E, F, G, A, B.  
-These correspond to the solfège syllables: Do, Re, Mi, Fa, Sol, La, Si.
+- Node.js 22 or newer
+- Rust nightly
+- The `wasm32-unknown-unknown` Rust target
+- `wasm-bindgen-cli` version 0.2.100
 
-**duration**:  
-Indicates the length of the note. Common durations include:  
-1: Whole note (the longest)
-2: Half note
-4: Quarter note, and so on. Higher numbers represent shorter notes (e.g., 8 for an eighth note, 16 for a sixteenth note).  
-...
+Rebuild the WebAssembly package from the repository root:
 
-Example: C4 (C quarter note), G1 (G whole note), A32 (A thirty-second note)
+```powershell
+./scripts/build-wasm.ps1
+```
 
-### Chord
+Start the web application:
 
-Notes can be combined to form a chord using the : symbol to connect them.  
-Each note in the chord is played simultaneously.
+```powershell
+cd web
+npm install
+npm run dev
+```
 
-Syntax: `<note1>[duration]:<note2>[duration]:<note3>[duration]`
+## Verification
 
-For example, C16:E16:G16 creates a chord with the notes C, E, and G, all with a duration of a sixteenth note.
+Run the Rust and web checks before publishing:
 
-### Rest
+```powershell
+cargo test -p midi-to-mml --lib --tests
+./scripts/verify-parity-fixtures.ps1
+cd web
+npm ci
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:wasm
+npm run test:project
+npm run build
+npm run test:build
+npm run test:browser
+```
 
-Rests work similarly to notes, but instead of a note_name, you use the letter r to indicate silence for a specific duration.
+## Deployment
 
-Syntax: `r[duration]`
+Import this repository into Vercel and set the Root Directory to `web`. The
+included Vercel configuration builds the Vite application and publishes the
+`dist` directory. Pushes to `main` trigger production deployments.
 
-For example, r4 represents a quarter rest, meaning a pause or silence for the length of a quarter note.
+## Privacy
 
-### Tempo
+MIDI files and saved projects remain on the user's device. See `PRIVACY.md` for
+details.
 
-Tempo sets the speed of the music, specifying the number of beats per minute (BPM).
+## SoundFont
 
-Syntax: `t<beats_per_minute>`
+Playback uses GeneralUser GS by S. Christian Collins. Its license is included
+at `web/public/soundfonts/GENERALUSER-GS-LICENSE.txt`.
 
-For example, t120 sets the tempo to 120 BPM, meaning there are 120 beats in one minute.
+## License
 
-### Octave
-
-The octave determines the pitch range of the notes, with higher numbers representing higher pitches.  
-The range typically goes from 0 (lowest) to 8 (highest).
-
-Syntax: `o<octave_number>`
-
-For example, o4 sets the notes to the 4th octave, which is the middle range.
-
-### Velocity
-
-Velocity controls the intensity or volume of the notes, with values ranging from 0 (softest) to 15 (loudest).
-
-Syntax: `v<velocity_value>`
-
-For example, v10 sets the note's velocity to 10, resulting in a moderately loud note.
-
-## Song options guide
-
-### Auto Boot Velocity
-
-Automatically increases the velocity to the highest level within the defined range.  
-The boost is calculated from the current maximum velocity to the highest note velocity.
-
-### Auto Equalize Note Length
-
-Automatically balances the number of notes between two tracks when performing a split action, ensuring even distribution.
-
-### Velocity Min and Max
-
-By default, the velocity range is 0-15. The velocity min and velocity max define the minimum and maximum range within which notes are allowed.
-
-### Min Gap for Chord
-
-In MML:
-
-1. Each track is allowed to have only one note or chord played at any given time.
-2. The position of the subsequent note depends on the length of the preceding note.
-
-When overlapping notes in MIDI are converted to MML, two scenarios can occur:
-
-1. If the start point of two notes is less than or equal to the min gap for chord, these notes will be combined into a chord.
-2. If the start point of the following note minus the start point of the preceding note is greater than the min gap for chord, the preceding note will be shortened so that the position of the following note is accurate.
-
-The min gap for chord acts as a threshold condition, measured in the smallest unit.
-
-### Smallest Unit
-
-The smallest unit in the process of converting MIDI to MML, by default, is a 1/64 note.
-
-## Donate
-
-#### Paypal
-
-[<img src="https://www.paypalobjects.com/paypal-ui/logos/svg/paypal-color.svg" height="64px" />)](https://paypal.me/cuikho210)
-
-#### Momo
-
-<img
-  src="https://github.com/cuikho210/revelation-mobile-midi-to-mml/assets/86552587/889d0c3c-a214-4ebc-8db3-48cce0570b20"
-  height="256px"
-/>
+The project source is provided under the MIT License. See `LICENSE`.
