@@ -114,6 +114,28 @@ test('finishes a short tempo-changing song and returns to a stopped state', asyn
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible({ timeout: 15_000 });
 });
 
+test('stops, seeks, and replays without retaining the previous synthesizer', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.getByRole('button', { name: 'Convert' }).click();
+
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByText('SoundFont', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Stop' }).click();
+  await expect(page.getByText('00:00', { exact: true }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByText('SoundFont', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+
+  await page.locator('footer [data-slot="slider-thumb"]').first().waitFor({ state: 'visible' });
+  await page.getByLabel('Playback position').press('End');
+  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  await page.getByRole('button', { name: 'Stop' }).click();
+});
+
 test('reports invalid MIDI without crashing the worker UI', async ({ page }) => {
   await page.goto('/');
   await page.locator('input[type="file"]').first().setInputFiles({

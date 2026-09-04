@@ -53,6 +53,7 @@ export default function Home() {
   const projectInput = useRef<HTMLInputElement>(null);
   const converter = useRef<ConverterWorkerClient | undefined>(undefined);
   const player = useRef<BrowserMidiPlayer | undefined>(undefined);
+  const seekTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [file, setFile] = useState<File>();
   const [sourceName, setSourceName] = useState<string>();
   const [snapshot, setSnapshot] = useState<SongSnapshot>();
@@ -62,10 +63,13 @@ export default function Home() {
   const [error, setError] = useState<string>();
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
+  const [seekPosition, setSeekPosition] = useState<number>();
   const [duration, setDuration] = useState(0);
   const [activeRange, setActiveRange] = useState<PlaybackRange>();
   const [volume, setVolume] = useState(75);
   const [audioStatus, setAudioStatus] = useState<'idle' | 'loading' | 'soundfont' | 'fallback'>('idle');
+  const [playbackPending, setPlaybackPending] = useState(false);
+  const playbackPendingRef = useRef(false);
   const [options, setOptions] = useState<SongOptions>(() => loadPreferences());
   const [keymapOpen, setKeymapOpen] = useState(false);
   const [keymapText, setKeymapText] = useState('{\n  "60": 72\n}');
@@ -73,8 +77,10 @@ export default function Home() {
 
   const tracks = snapshot?.tracks ?? [];
   const selected = tracks[activeTrack] ?? tracks[0] ?? emptyTrack;
+  const sliderPosition = seekPosition ?? Math.max(0, Math.min(duration, Math.round(position * 100) / 100));
 
   useEffect(() => () => {
+    if (seekTimer.current) clearTimeout(seekTimer.current);
     converter.current?.dispose();
     player.current?.dispose();
   }, []);
@@ -184,27 +190,26 @@ export default function Home() {
   }
 
   async function togglePlayback() {
-    if (!snapshot) {
-      setError('Convert a MIDI file before starting playback.');
-      return;
-    }
+    if (!snapshot || playbackPendingRef.current) return;
     player.current ??= new BrowserMidiPlayer();
     if (player.current.isPlaying) {
       player.current.pause();
       setPlaying(false);
     } else {
+      playbackPendingRef.current = true;
+      setPlaybackPending(true);
       setAudioStatus('loading');
       try {
-        await player.current.resume().catch(async () => {
-          await player.current?.play(snapshot, updateProgress, activeTrack);
-        });
-        if (!player.current.isPlaying) await player.current.play(snapshot, updateProgress, activeTrack);
-        setAudioStatus(player.current.mode);
+        await player.current.play(snapshot, updateProgress, activeTrack);
+        setPlaying(player.current.isPlaying);
+        setAudioStatus(player.current.isPlaying ? player.current.mode : 'idle');
         if (player.current.warning) setError(`SoundFont unavailable; using basic audio fallback. ${player.current.warning}`);
-        setPlaying(true);
       } catch (cause) {
         setAudioStatus('idle');
         setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        playbackPendingRef.current = false;
+        setPlaybackPending(false);
       }
     }
   }
@@ -219,7 +224,25 @@ export default function Home() {
   function stopPlayback() {
     player.current?.stop();
     setPlaying(false);
+    setSeekPosition(undefined);
     setActiveRange(undefined);
+  }
+
+  function queueSeek(value: number) {
+    setSeekPosition(value);
+    if (seekTimer.current) clearTimeout(seekTimer.current);
+    seekTimer.current = setTimeout(() => {
+      seekTimer.current = undefined;
+      setSeekPosition(undefined);
+      void player.current?.seek(value);
+    }, 150);
+  }
+
+  function commitSeek(value: number) {
+    if (seekTimer.current) clearTimeout(seekTimer.current);
+    seekTimer.current = undefined;
+    setSeekPosition(undefined);
+    void player.current?.seek(value);
   }
 
   async function applyKeymap() {
@@ -427,12 +450,12 @@ export default function Home() {
       <footer className="sticky bottom-0 border-t bg-card/95 shadow-[0_-12px_40px_rgb(15_23_42/0.06)] backdrop-blur-xl">
         <div className="mx-auto grid max-w-[1500px] grid-cols-[auto_1fr_auto_auto] items-center gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-1">
-          <Button size="icon" className="rounded-full" aria-label={playing ? 'Pause' : 'Play'} onClick={() => void togglePlayback()}>
+          <Button size="icon" className="rounded-full" aria-label={playing ? 'Pause' : 'Play'} disabled={!snapshot || busy || playbackPending} onClick={() => void togglePlayback()}>
             {playing ? <Pause className="size-4" /> : <Play className="ml-0.5 size-4" />}
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Stop" onClick={stopPlayback}><Square className="size-3.5" /></Button>
+          <Button variant="ghost" size="icon" aria-label="Stop" disabled={!snapshot} onClick={stopPlayback}><Square className="size-3.5" /></Button>
           </div>
-          <div className="flex items-center gap-3"><span className="w-10 font-mono text-[11px] text-muted-foreground">{formatTime(position)}</span><Slider value={[position]} max={Math.max(duration, 1)} aria-label="Playback position" /><span className="hidden w-10 font-mono text-[11px] text-muted-foreground sm:inline">{formatTime(duration)}</span></div>
+          <div className="flex items-center gap-3"><span className="w-10 font-mono text-[11px] text-muted-foreground">{formatTime(sliderPosition)}</span><Slider className="w-full" value={[sliderPosition]} max={Math.max(duration, 1)} step={0.01} disabled={!snapshot || duration <= 0 || playbackPending} aria-label="Playback position" onValueChange={(next) => queueSeek(typeof next === 'number' ? next : next[0])} onValueCommitted={(next) => commitSeek(typeof next === 'number' ? next : next[0])} /><span className="hidden w-10 font-mono text-[11px] text-muted-foreground sm:inline">{formatTime(duration)}</span></div>
           <div className="hidden items-center gap-2 sm:flex"><Volume2 className="size-4 text-muted-foreground" /><Slider className="w-20" value={[volume]} max={100} aria-label="Volume" onValueChange={(next) => { const value = typeof next === 'number' ? next : next[0]; setVolume(value); player.current?.setVolume(value / 100); }} /></div>
           <span className="hidden text-[11px] text-muted-foreground lg:inline">{audioStatus === 'loading' ? 'Loading sounds...' : audioStatus === 'soundfont' ? 'SoundFont' : audioStatus === 'fallback' ? 'Basic audio fallback' : 'Audio idle'}</span>
         </div>

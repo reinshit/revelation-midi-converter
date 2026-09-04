@@ -21,6 +21,7 @@ export class BrowserMidiPlayer {
   private volume = 0.75;
   private playbackMode: 'soundfont' | 'fallback' = 'fallback';
   private playbackWarning: string | undefined;
+  private playbackGeneration = 0;
 
   get isPlaying() {
     return this.animationFrame !== undefined;
@@ -35,16 +36,22 @@ export class BrowserMidiPlayer {
   }
 
   async play(snapshot: SongSnapshot, listener: ProgressListener, highlightTrackIndex = 0) {
+    const generation = ++this.playbackGeneration;
     this.stopSources();
     this.snapshot = snapshot;
     this.listener = listener;
     this.highlightTrackIndex = highlightTrackIndex;
+    this.playbackWarning = undefined;
     this.context ??= new AudioContext();
     await this.context.resume();
     const synth = await this.getSynth().catch((cause) => {
       this.playbackWarning = cause instanceof Error ? cause.message : String(cause);
       return undefined;
     });
+    if (generation !== this.playbackGeneration) {
+      if (synth) this.destroySynth();
+      return;
+    }
     this.playbackMode = synth ? 'soundfont' : 'fallback';
     if (!synth) {
       this.master ??= this.context.createGain();
@@ -110,14 +117,35 @@ export class BrowserMidiPlayer {
   pause() {
     if (!this.context || !this.isPlaying) return;
     this.pausedAt = Math.min(this.duration, this.context.currentTime - this.startedAt);
+    this.playbackGeneration++;
     this.stopSources();
     this.listener?.(this.pausedAt, this.duration, this.rangeAt(this.pausedAt));
   }
 
   stop() {
+    this.playbackGeneration++;
     this.stopSources();
     this.pausedAt = 0;
     this.listener?.(0, this.duration);
+  }
+
+  async seek(positionSeconds: number) {
+    if (!this.snapshot || !this.listener) return;
+    const shouldResume = this.isPlaying;
+    const target = Math.max(0, Math.min(this.duration, positionSeconds));
+    if (target >= this.duration) {
+      this.playbackGeneration++;
+      this.stopSources();
+      this.pausedAt = 0;
+      this.listener(this.duration, this.duration);
+      return;
+    }
+    this.pausedAt = target;
+    if (shouldResume) {
+      await this.play(this.snapshot, this.listener, this.highlightTrackIndex);
+    } else {
+      this.listener(this.pausedAt, this.duration, this.rangeAt(this.pausedAt));
+    }
   }
 
   async resume() {
@@ -131,10 +159,8 @@ export class BrowserMidiPlayer {
   }
 
   dispose() {
+    this.playbackGeneration++;
     this.stop();
-    this.synth?.destroy();
-    this.synth = undefined;
-    this.synthPromise = undefined;
     void this.context?.close();
     this.context = undefined;
     this.master = undefined;
@@ -199,13 +225,22 @@ export class BrowserMidiPlayer {
   private stopSources() {
     if (this.animationFrame !== undefined) cancelAnimationFrame(this.animationFrame);
     this.animationFrame = undefined;
-    this.synth?.stopAll(true);
+    this.destroySynth();
     for (const source of this.sources) {
       source.onended = null;
       try { source.stop(); } catch { /* already stopped */ }
       source.disconnect();
     }
     this.sources = [];
+  }
+
+  private destroySynth() {
+    if (!this.synth) return;
+    this.synth.stopAll(true);
+    if (this.context) this.synth.disconnect(this.context.destination);
+    this.synth.destroy();
+    this.synth = undefined;
+    this.synthPromise = undefined;
   }
 
   private rangeAt(position: number): PlaybackRange | undefined {
