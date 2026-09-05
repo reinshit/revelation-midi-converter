@@ -2,26 +2,27 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
+  AlignHorizontalDistributeCenter,
+  ArrowRightLeft,
+  AudioWaveform,
+  Combine,
   Copy,
-  Download,
-  FileMusic,
+  FileAudio,
+  FileCode2,
+  FileDown,
+  FileUp,
   FolderOpen,
-  History,
-  KeyboardMusic,
   LoaderCircle,
-  Merge,
-  Music2,
   Pause,
   Pencil,
   Play,
-  Scale,
-  Save,
-  Scissors,
-  Settings2,
-  Sparkles,
+  RotateCcw,
+  SlidersHorizontal,
+  Split,
   Square,
   Trash2,
   Volume2,
+  WandSparkles,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -394,7 +395,7 @@ export default function Home() {
       <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur-md">
         <div className="mx-auto flex min-h-18 max-w-[1440px] items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
-            <Music2 className="size-5" aria-hidden="true" />
+            <AudioWaveform className="size-5" aria-hidden="true" />
           </div>
           <div>
             <h1 className="font-heading text-base font-bold tracking-tight sm:text-lg">
@@ -419,7 +420,7 @@ export default function Home() {
         >
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent text-accent-foreground">
-              <FileMusic className="size-5" aria-hidden="true" />
+              <FileAudio className="size-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
@@ -467,7 +468,7 @@ export default function Home() {
               }}
             />
             <Button variant="outline" onClick={() => input.current?.click()}>
-              <FolderOpen className="size-4" aria-hidden="true" /> Choose MIDI
+              <FileUp className="size-4" aria-hidden="true" /> Choose MIDI
             </Button>
             <Button onClick={convert} disabled={busy}>
               {busy ? (
@@ -476,7 +477,7 @@ export default function Home() {
                   aria-hidden="true"
                 />
               ) : (
-                <Sparkles className="size-4" aria-hidden="true" />
+                <WandSparkles className="size-4" aria-hidden="true" />
               )}{' '}
               {busy ? 'Processing...' : 'Convert'}
             </Button>
@@ -487,7 +488,7 @@ export default function Home() {
               aria-label="Open project"
               onClick={() => projectInput.current?.click()}
             >
-              <FolderOpen className="size-4" />
+              <FolderOpen className="size-4" aria-hidden="true" />
             </Button>
             {recentProject && !snapshot ? (
               <Button
@@ -495,7 +496,7 @@ export default function Home() {
                 title="Restore last project"
                 onClick={() => void restoreProjectState(recentProject)}
               >
-                <History className="size-4" aria-hidden="true" /> Restore
+                <RotateCcw className="size-4" aria-hidden="true" /> Restore
               </Button>
             ) : null}
             <Button
@@ -506,7 +507,7 @@ export default function Home() {
               disabled={!snapshot}
               onClick={saveProject}
             >
-              <Save className="size-4" />
+              <FileDown className="size-4" aria-hidden="true" />
             </Button>
             <Button
               variant="outline"
@@ -519,7 +520,7 @@ export default function Home() {
                 downloadMml(sourceName ?? 'song.mid', snapshot.tracks)
               }
             >
-              <Download className="size-4" />
+              <FileCode2 className="size-4" aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -585,7 +586,7 @@ export default function Home() {
                     disabled={!snapshot || busy}
                     onClick={renameSelected}
                   >
-                    <Pencil className="size-4" />
+                    <Pencil className="size-4" aria-hidden="true" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -599,7 +600,7 @@ export default function Home() {
                       )
                     }
                   >
-                    <Scissors className="size-4" />
+                    <Split className="size-4" aria-hidden="true" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -615,7 +616,7 @@ export default function Home() {
                       )
                     }
                   >
-                    <Merge className="size-4" />
+                    <Combine className="size-4" aria-hidden="true" />
                   </Button>
                   <Button
                     variant="ghost"
@@ -629,7 +630,10 @@ export default function Home() {
                       )
                     }
                   >
-                    <Scale className="size-4" />
+                    <AlignHorizontalDistributeCenter
+                      className="size-4"
+                      aria-hidden="true"
+                    />
                   </Button>
                   <Button
                     variant="ghost"
@@ -638,7 +642,7 @@ export default function Home() {
                     aria-label="Copy converted code"
                     onClick={() => navigator.clipboard?.writeText(selected.mml)}
                   >
-                    <Copy className="size-4" />
+                    <Copy className="size-4" aria-hidden="true" />
                   </Button>
                 </div>
               </CardHeader>
@@ -681,7 +685,7 @@ export default function Home() {
 
             <Card className="h-fit gap-0 overflow-hidden py-0 shadow-[0_18px_60px_oklch(0.06_0.05_300/0.5)] md:col-span-2 xl:col-span-1">
               <CardHeader className="flex-row items-center gap-2 border-b px-4 py-3">
-                <Settings2 className="size-4" />
+                <SlidersHorizontal className="size-4" aria-hidden="true" />
                 <CardTitle className="text-sm">Conversion settings</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6 p-4">
@@ -770,14 +774,16 @@ export default function Home() {
                   disabled={!snapshot}
                   onClick={() => setKeymapOpen(true)}
                 >
-                  <KeyboardMusic className="size-4" /> Remap notes
+                  <ArrowRightLeft className="size-4" aria-hidden="true" />
+                  Remap notes
                 </Button>
                 <Button
                   variant="ghost"
                   className="w-full text-destructive"
                   onClick={() => void clearLocalData()}
                 >
-                  <Trash2 className="size-4" /> Clear local data
+                  <Trash2 className="size-4" aria-hidden="true" /> Clear local
+                  data
                 </Button>
               </CardContent>
             </Card>
@@ -786,7 +792,7 @@ export default function Home() {
           <Card className="grid min-h-[420px] place-items-center border-dashed bg-card/55 p-6 text-center">
             <div className="max-w-md">
               <div className="mx-auto grid size-16 place-items-center rounded-3xl bg-accent text-accent-foreground">
-                <FileMusic className="size-7" aria-hidden="true" />
+                <FileAudio className="size-7" aria-hidden="true" />
               </div>
               <h2 className="mt-5 font-heading text-xl font-bold tracking-tight">
                 Your workspace is ready
@@ -801,7 +807,7 @@ export default function Home() {
                 aria-label="Browse for a MIDI file"
                 onClick={() => input.current?.click()}
               >
-                <FolderOpen className="size-4" aria-hidden="true" /> Choose MIDI
+                <FileUp className="size-4" aria-hidden="true" /> Choose MIDI
               </Button>
             </div>
           </Card>
@@ -819,9 +825,9 @@ export default function Home() {
               onClick={() => void togglePlayback()}
             >
               {playing ? (
-                <Pause className="size-4" />
+                <Pause className="size-4" aria-hidden="true" />
               ) : (
-                <Play className="ml-0.5 size-4" />
+                <Play className="ml-0.5 size-4" aria-hidden="true" />
               )}
             </Button>
             <Button
@@ -831,7 +837,7 @@ export default function Home() {
               disabled={!snapshot}
               onClick={stopPlayback}
             >
-              <Square className="size-3.5" />
+              <Square className="size-3.5" aria-hidden="true" />
             </Button>
           </div>
           <div className="flex min-w-0 items-center gap-2">
