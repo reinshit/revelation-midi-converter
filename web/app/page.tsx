@@ -271,7 +271,7 @@ export default function Home() {
         setAudioStatus(player.current.isPlaying ? player.current.mode : 'idle');
         if (player.current.warning)
           setError(
-            `SoundFont unavailable; using basic audio fallback. ${player.current.warning}`,
+            `Studio instruments could not load, so simple tones are being used. ${player.current.warning}`,
           );
       } catch (cause) {
         setAudioStatus('idle');
@@ -322,7 +322,7 @@ export default function Home() {
     try {
       const raw: unknown = JSON.parse(keymapText);
       if (!raw || typeof raw !== 'object' || Array.isArray(raw))
-        throw new Error('The keymap must be a JSON object');
+        throw new Error('The note mapping must use the shown JSON format');
       const mapping: Record<number, number> = {};
       for (const [fromText, toValue] of Object.entries(raw)) {
         const from = Number(fromText);
@@ -334,7 +334,9 @@ export default function Home() {
           Number(toValue) < 0 ||
           Number(toValue) > 127
         ) {
-          throw new Error('Every MIDI key must be an integer from 0 to 127');
+          throw new Error(
+            'Every note number must be a whole number from 0 to 127',
+          );
         }
         mapping[from] = Number(toValue);
       }
@@ -349,7 +351,7 @@ export default function Home() {
   async function clearLocalData() {
     if (
       !window.confirm(
-        'Clear saved projects, keymaps, and preferences from this browser? The currently open project will remain available until this tab is closed.',
+        'Clear saved projects, note mappings, and preferences from this browser? The currently open project will remain available until this tab is closed.',
       )
     )
       return;
@@ -428,7 +430,11 @@ export default function Home() {
                   {tracks.length} {tracks.length === 1 ? 'track' : 'tracks'}
                 </span>
                 <span aria-hidden="true">/</span>
-                <span>PPQ {snapshot?.ppq ?? 'N/A'}</span>
+                <span>
+                  {snapshot
+                    ? `Timing detail ${snapshot.ppq} pulses`
+                    : 'No timing data'}
+                </span>
                 <Badge variant="secondary">
                   {snapshot ? 'Converted' : 'Empty'}
                 </Badge>
@@ -505,8 +511,8 @@ export default function Home() {
             <Button
               variant="outline"
               size="icon"
-              title="Export all MML"
-              aria-label="Export all MML"
+              title="Export converted code"
+              aria-label="Export converted code"
               disabled={!snapshot}
               onClick={() =>
                 snapshot &&
@@ -531,7 +537,7 @@ export default function Home() {
           <div className="grid items-start gap-4 md:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_300px]">
             <Card className="h-fit gap-0 overflow-hidden py-0 shadow-[0_18px_60px_oklch(0.06_0.05_300/0.5)]">
               <CardHeader className="flex-row items-center justify-between border-b px-4 py-3">
-                <CardTitle className="text-sm">Track</CardTitle>
+                <CardTitle className="text-sm">Tracks</CardTitle>
                 <Badge variant="outline">{tracks.length}</Badge>
               </CardHeader>
               <CardContent className="space-y-1 p-2">
@@ -553,7 +559,7 @@ export default function Home() {
                       {track.instrument.name}
                     </span>
                     <span className="mt-2 block text-xs text-muted-foreground">
-                      {track.mml_note_length} MML notes
+                      {track.mml_note_length} converted notes
                     </span>
                   </button>
                 ))}
@@ -574,8 +580,8 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Rename track"
-                    aria-label="Rename track"
+                    title="Rename"
+                    aria-label="Rename selected track"
                     disabled={!snapshot || busy}
                     onClick={renameSelected}
                   >
@@ -584,8 +590,8 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Split track"
-                    aria-label="Split track"
+                    title="Separate overlapping notes"
+                    aria-label="Separate overlapping notes"
                     disabled={!snapshot || busy}
                     onClick={() =>
                       void runOperation((client) =>
@@ -598,8 +604,8 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Merge selected tracks"
-                    aria-label="Merge selected tracks"
+                    title="Combine with partner track"
+                    aria-label="Combine with partner track"
                     disabled={!snapshot || tracks.length < 2 || busy}
                     onClick={() =>
                       void runOperation(
@@ -614,8 +620,8 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Equalize selected tracks"
-                    aria-label="Equalize selected tracks"
+                    title="Align with partner track"
+                    aria-label="Align with partner track"
                     disabled={!snapshot || tracks.length < 2 || busy}
                     onClick={() =>
                       void runOperation((client) =>
@@ -628,8 +634,8 @@ export default function Home() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Copy MML"
-                    aria-label="Copy MML"
+                    title="Copy converted code"
+                    aria-label="Copy converted code"
                     onClick={() => navigator.clipboard?.writeText(selected.mml)}
                   >
                     <Copy className="size-4" />
@@ -639,7 +645,7 @@ export default function Home() {
               <CardContent className="p-4">
                 {playing ? (
                   <pre
-                    aria-label="MML code with playback highlighting"
+                    aria-label="Converted MML code with playback highlighting"
                     className="min-h-[360px] overflow-auto whitespace-pre-wrap break-all rounded-2xl border bg-editor px-4 py-3 font-mono text-[13px] leading-7 md:min-h-[480px]"
                   >
                     {activeRange ? (
@@ -659,7 +665,7 @@ export default function Home() {
                   </pre>
                 ) : (
                   <Textarea
-                    aria-label="MML code"
+                    aria-label="Converted MML code"
                     value={selected.mml}
                     readOnly
                     spellCheck={false}
@@ -676,15 +682,18 @@ export default function Home() {
             <Card className="h-fit gap-0 overflow-hidden py-0 shadow-[0_18px_60px_oklch(0.06_0.05_300/0.5)] md:col-span-2 xl:col-span-1">
               <CardHeader className="flex-row items-center gap-2 border-b px-4 py-3">
                 <Settings2 className="size-4" />
-                <CardTitle className="text-sm">Song options</CardTitle>
+                <CardTitle className="text-sm">Conversion settings</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6 p-4">
                 <label
                   className="block text-sm font-medium"
                   htmlFor="comparison-track"
                 >
-                  Second track
+                  Partner track
                 </label>
+                <p className="-mt-4 text-xs leading-5 text-muted-foreground">
+                  Used when combining tracks or aligning their timing.
+                </p>
                 <select
                   id="comparison-track"
                   value={comparisonTrack}
@@ -705,10 +714,10 @@ export default function Home() {
                 <div className="flex items-start justify-between gap-4">
                   <span>
                     <span className="block text-sm font-medium">
-                      Auto boost velocity
+                      Balance quiet notes
                     </span>
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      Automatically raise quiet notes.
+                      Raises softer notes to keep their intensity consistent.
                     </span>
                   </span>
                   <Switch
@@ -716,11 +725,12 @@ export default function Home() {
                     onCheckedChange={(checked) =>
                       void updateOptions({ auto_boot_velocity: checked })
                     }
-                    aria-label="Auto boost velocity"
+                    aria-label="Balance quiet notes"
                   />
                 </div>
                 <OptionSlider
-                  label="Velocity range"
+                  label="Note intensity"
+                  description="Sets the minimum and maximum strength of converted notes."
                   value={`${options.velocity_min} - ${options.velocity_max}`}
                   values={[options.velocity_min, options.velocity_max]}
                   min={0}
@@ -731,7 +741,8 @@ export default function Home() {
                   }
                 />
                 <OptionSlider
-                  label="Smallest unit"
+                  label="Timing precision"
+                  description="Higher values preserve shorter notes and finer timing."
                   value={`1/${options.smallest_unit}`}
                   values={[options.smallest_unit]}
                   min={16}
@@ -742,7 +753,8 @@ export default function Home() {
                   }
                 />
                 <OptionSlider
-                  label="Chord gap"
+                  label="Chord grouping"
+                  description="Controls how close notes must begin to be grouped as a chord."
                   value={String(options.min_gap_for_chord)}
                   values={[options.min_gap_for_chord]}
                   min={0}
@@ -758,7 +770,7 @@ export default function Home() {
                   disabled={!snapshot}
                   onClick={() => setKeymapOpen(true)}
                 >
-                  <KeyboardMusic className="size-4" /> Apply keymap
+                  <KeyboardMusic className="size-4" /> Remap notes
                 </Button>
                 <Button
                   variant="ghost"
@@ -865,9 +877,9 @@ export default function Home() {
             {audioStatus === 'loading'
               ? 'Loading sounds'
               : audioStatus === 'soundfont'
-                ? 'SoundFont'
+                ? 'Studio instruments'
                 : audioStatus === 'fallback'
-                  ? 'Basic audio'
+                  ? 'Simple tones'
                   : 'Audio idle'}
           </span>
         </div>
@@ -876,9 +888,10 @@ export default function Home() {
       <Dialog open={keymapOpen} onOpenChange={setKeymapOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Keymap track {activeTrack + 1}</DialogTitle>
+            <DialogTitle>Remap notes in track {activeTrack + 1}</DialogTitle>
             <DialogDescription>
-              Enter source and destination MIDI key pairs as JSON.
+              Map each original MIDI note number to its replacement. For
+              example, 60 to 72 moves middle C up one octave.
             </DialogDescription>
           </DialogHeader>
           <Textarea
@@ -886,7 +899,7 @@ export default function Home() {
             onChange={(event) => setKeymapText(event.target.value)}
             className="min-h-48 font-mono"
             spellCheck={false}
-            aria-label="Keymap JSON"
+            aria-label="Note mapping in JSON format"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setKeymapOpen(false)}>
@@ -902,6 +915,7 @@ export default function Home() {
 
 function OptionSlider({
   label,
+  description,
   value,
   values,
   min,
@@ -910,6 +924,7 @@ function OptionSlider({
   onChange,
 }: {
   label: string;
+  description: string;
   value: string;
   values: number[];
   min: number;
@@ -919,12 +934,15 @@ function OptionSlider({
 }) {
   return (
     <div>
-      <div className="mb-3 flex justify-between text-sm">
+      <div className="flex justify-between gap-3 text-sm">
         <span className="font-medium">{label}</span>
         <span className="font-mono text-xs text-muted-foreground">{value}</span>
       </div>
+      <p className="mt-1 mb-3 text-xs leading-5 text-muted-foreground">
+        {description}
+      </p>
       <Slider
-        aria-label={label}
+        aria-label={`${label}. ${description}`}
         value={values}
         min={min}
         max={max}
