@@ -44,6 +44,66 @@ test('keeps the primary workflow usable on a mobile viewport', async ({
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test('keeps the current project identity until a selected replacement is converted', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+
+  const replacementChooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Choose MIDI' }).click();
+  await (
+    await replacementChooser
+  ).setFiles({
+    name: 'replacement.mid',
+    mimeType: 'audio/midi',
+    buffer: shortTempoMidi,
+  });
+  await expect(
+    page.getByText('replacement.mid is ready to convert'),
+  ).toBeVisible();
+
+  const projectDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Save project' }).click();
+  const download = await projectDownload;
+  expect(download.suggestedFilename()).toBe('test.reve-midi.json');
+  const projectPath = await download.path();
+  const document = JSON.parse(
+    await (await import('node:fs/promises')).readFile(projectPath!, 'utf8'),
+  );
+  expect(document.source.name).toBe('test.mid');
+
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+  await expect(
+    page.getByText('replacement.mid', { exact: true }),
+  ).toBeVisible();
+});
+
+test('resets playback state before showing a replacement conversion', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+
+  const replacementChooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Choose MIDI' }).click();
+  await (
+    await replacementChooser
+  ).setFiles({
+    name: 'replacement.mid',
+    mimeType: 'audio/midi',
+    buffer: shortTempoMidi,
+  });
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+  await expect(page.getByLabel('Playback position')).toBeDisabled();
+  await expect(page.getByText('Audio idle', { exact: true })).toBeVisible();
+});
+
 test('converts, edits, highlights, exports, and restores a MIDI project', async ({
   page,
 }) => {
@@ -108,6 +168,29 @@ test('converts, edits, highlights, exports, and restores a MIDI project', async 
   ).toBeVisible();
 });
 
+test('clears persisted data without changing the open project settings', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+
+  await page
+    .getByRole('slider', {
+      name: 'Note intensity. Sets the minimum and maximum strength of converted notes. minimum',
+      exact: true,
+    })
+    .press('ArrowRight');
+  await expect(page.getByText('1 - 15', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Convert', exact: true }),
+  ).toBeEnabled();
+
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Clear local data' }).click();
+  await expect(page.getByText('1 - 15', { exact: true })).toBeVisible();
+});
+
 test('starts and stops SoundFont playback for every golden MIDI fixture', async ({
   page,
 }) => {
@@ -149,6 +232,11 @@ test('finishes a short tempo-changing song and returns to a stopped state', asyn
 test('stops, seeks, and replays without retaining the previous synthesizer', async ({
   page,
 }) => {
+  let soundFontRequests = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith('/soundfonts/generaluser-gs.sf2'))
+      soundFontRequests += 1;
+  });
   await page.goto('/');
   await page.locator('input[type="file"]').first().setInputFiles(fixture);
   await page.getByRole('button', { name: 'Convert', exact: true }).click();
@@ -165,6 +253,7 @@ test('stops, seeks, and replays without retaining the previous synthesizer', asy
     page.getByText('Studio instruments', { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  expect(soundFontRequests).toBe(1);
 
   await page
     .locator('footer [data-slot="slider-thumb"]')
@@ -174,6 +263,24 @@ test('stops, seeks, and replays without retaining the previous synthesizer', asy
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
   await page.getByRole('button', { name: 'Play' }).click();
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  await page.getByRole('button', { name: 'Stop' }).click();
+});
+
+test('presents basic audio fallback as a warning instead of a failed conversion', async ({
+  page,
+}) => {
+  await page.route('**/soundfonts/generaluser-gs.sf2', (route) =>
+    route.abort(),
+  );
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByText('Simple tones', { exact: true })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText(
+    'Studio instruments could not load',
+  );
+  await expect(page.getByRole('alert')).toHaveCount(0);
   await page.getByRole('button', { name: 'Stop' }).click();
 });
 

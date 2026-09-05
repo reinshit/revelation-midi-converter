@@ -90,6 +90,7 @@ export default function Home() {
   const [comparisonTrack, setComparisonTrack] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [warning, setWarning] = useState<string>();
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [seekPosition, setSeekPosition] = useState<number>();
@@ -134,24 +135,37 @@ export default function Home() {
 
   async function convert() {
     if (!file) {
-      input.current?.click();
+      openMidiPicker();
       return;
     }
     await loadMidi(file);
   }
 
+  function openMidiPicker() {
+    if (!input.current) return;
+    input.current.value = '';
+    input.current.click();
+  }
+
+  function openProjectPicker() {
+    if (!projectInput.current) return;
+    projectInput.current.value = '';
+    projectInput.current.click();
+  }
+
   async function loadMidi(selectedFile: File) {
     setBusy(true);
     setError(undefined);
+    setWarning(undefined);
     try {
       converter.current ??= new ConverterWorkerClient();
       const result = await converter.current.load(
         await selectedFile.arrayBuffer(),
         options,
       );
-      setFile(selectedFile);
       setSourceName(selectedFile.name);
       applySnapshot(result, 0);
+      setFile((current) => (current === selectedFile ? undefined : current));
       await saveRecentProject(
         selectedFile.name,
         converter.current.getProjectState(),
@@ -166,6 +180,7 @@ export default function Home() {
   async function restoreProject(selectedFile: File) {
     setBusy(true);
     setError(undefined);
+    setWarning(undefined);
     try {
       await restoreProjectState(await readProject(selectedFile));
     } catch (cause) {
@@ -176,17 +191,38 @@ export default function Home() {
   }
 
   async function restoreProjectState(project: RestoredProject) {
+    const nextConverter = new ConverterWorkerClient();
+    let result: SongSnapshot;
+    try {
+      result = await nextConverter.restore(
+        project.sourceBytes,
+        project.initialOptions,
+        project.mutations,
+      );
+    } catch (cause) {
+      nextConverter.dispose();
+      throw cause;
+    }
     converter.current?.dispose();
-    converter.current = new ConverterWorkerClient();
-    const result = await converter.current.restore(
-      project.sourceBytes,
-      project.initialOptions,
-      project.mutations,
-    );
+    converter.current = nextConverter;
     setFile(undefined);
     setSourceName(project.name);
     applySnapshot(result, 0);
-    await saveRecentProject(project.name, converter.current.getProjectState());
+    await saveRecentProject(project.name, nextConverter.getProjectState());
+  }
+
+  async function restoreRecentProject() {
+    if (!recentProject) return;
+    setBusy(true);
+    setError(undefined);
+    setWarning(undefined);
+    try {
+      await restoreProjectState(recentProject);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function saveProject() {
@@ -206,6 +242,7 @@ export default function Home() {
   }
 
   function applySnapshot(result: SongSnapshot, requestedIndex = activeTrack) {
+    resetPlaybackForSnapshot();
     const nextIndex = Math.min(
       requestedIndex,
       Math.max(0, result.tracks.length - 1),
@@ -226,6 +263,7 @@ export default function Home() {
     requestedIndex = activeTrack,
   ) {
     if (!converter.current) return;
+    resetPlaybackForSnapshot();
     setBusy(true);
     setError(undefined);
     try {
@@ -262,16 +300,19 @@ export default function Home() {
     if (player.current.isPlaying) {
       player.current.pause();
       setPlaying(false);
+      setAudioStatus('idle');
     } else {
       playbackPendingRef.current = true;
       setPlaybackPending(true);
       setAudioStatus('loading');
+      setError(undefined);
+      setWarning(undefined);
       try {
         await player.current.play(snapshot, updateProgress, activeTrack);
         setPlaying(player.current.isPlaying);
         setAudioStatus(player.current.isPlaying ? player.current.mode : 'idle');
         if (player.current.warning)
-          setError(
+          setWarning(
             `Studio instruments could not load, so simple tones are being used. ${player.current.warning}`,
           );
       } catch (cause) {
@@ -292,7 +333,10 @@ export default function Home() {
     setPosition(nextPosition);
     setDuration(nextDuration);
     setActiveRange(range);
-    if (nextDuration > 0 && nextPosition >= nextDuration) setPlaying(false);
+    if (nextDuration > 0 && nextPosition >= nextDuration) {
+      setPlaying(false);
+      setAudioStatus('idle');
+    }
   }
 
   function stopPlayback() {
@@ -300,6 +344,17 @@ export default function Home() {
     setPlaying(false);
     setSeekPosition(undefined);
     setActiveRange(undefined);
+    setAudioStatus('idle');
+  }
+
+  function resetPlaybackForSnapshot() {
+    player.current?.stop();
+    setPlaying(false);
+    setPosition(0);
+    setSeekPosition(undefined);
+    setDuration(0);
+    setActiveRange(undefined);
+    setAudioStatus('idle');
   }
 
   function queueSeek(value: number) {
@@ -360,7 +415,7 @@ export default function Home() {
       await clearProjectData();
       clearPreferences();
       setRecentProject(undefined);
-      setOptions(defaultSongOptions);
+      if (!snapshot) setOptions(defaultSongOptions);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -374,7 +429,7 @@ export default function Home() {
       );
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'o') {
         event.preventDefault();
-        input.current?.click();
+        openMidiPicker();
       } else if (
         (event.ctrlKey || event.metaKey) &&
         event.key.toLowerCase() === 's'
@@ -424,7 +479,9 @@ export default function Home() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
-                {sourceName ?? 'Choose or drop a MIDI file here'}
+                {file
+                  ? `${file.name} is ready to convert`
+                  : (sourceName ?? 'Choose or drop a MIDI file here')}
               </p>
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>
@@ -437,7 +494,7 @@ export default function Home() {
                     : 'No timing data'}
                 </span>
                 <Badge variant="secondary">
-                  {snapshot ? 'Converted' : 'Empty'}
+                  {file ? 'Ready' : snapshot ? 'Converted' : 'Empty'}
                 </Badge>
               </div>
             </div>
@@ -452,8 +509,8 @@ export default function Home() {
               onChange={(event) => {
                 const selected = event.target.files?.[0];
                 setFile(selected);
-                setSourceName(selected?.name);
                 setError(undefined);
+                setWarning(undefined);
               }}
             />
             <input
@@ -467,7 +524,7 @@ export default function Home() {
                 if (selected) void restoreProject(selected);
               }}
             />
-            <Button variant="outline" onClick={() => input.current?.click()}>
+            <Button variant="outline" onClick={openMidiPicker}>
               <FileUp className="size-4" aria-hidden="true" /> Choose MIDI
             </Button>
             <Button onClick={convert} disabled={busy}>
@@ -486,7 +543,7 @@ export default function Home() {
               size="icon"
               title="Open project"
               aria-label="Open project"
-              onClick={() => projectInput.current?.click()}
+              onClick={openProjectPicker}
             >
               <FolderOpen className="size-4" aria-hidden="true" />
             </Button>
@@ -494,7 +551,8 @@ export default function Home() {
               <Button
                 variant="outline"
                 title="Restore last project"
-                onClick={() => void restoreProjectState(recentProject)}
+                disabled={busy}
+                onClick={() => void restoreRecentProject()}
               >
                 <RotateCcw className="size-4" aria-hidden="true" /> Restore
               </Button>
@@ -532,6 +590,12 @@ export default function Home() {
           >
             Something went wrong. {error}
           </p>
+        ) : null}
+
+        {warning ? (
+          <output className="mb-5 block rounded-2xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-medium text-foreground">
+            {warning}
+          </output>
         ) : null}
 
         {snapshot ? (
@@ -805,7 +869,7 @@ export default function Home() {
                 className="mt-6"
                 size="lg"
                 aria-label="Browse for a MIDI file"
-                onClick={() => input.current?.click()}
+                onClick={openMidiPicker}
               >
                 <FileUp className="size-4" aria-hidden="true" /> Choose MIDI
               </Button>
