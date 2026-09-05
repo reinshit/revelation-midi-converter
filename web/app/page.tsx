@@ -79,6 +79,7 @@ export default function Home() {
   const input = useRef<HTMLInputElement>(null);
   const projectInput = useRef<HTMLInputElement>(null);
   const converter = useRef<ConverterWorkerClient | undefined>(undefined);
+  const busyRef = useRef(false);
   const player = useRef<BrowserMidiPlayer | undefined>(undefined);
   const seekTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -134,6 +135,7 @@ export default function Home() {
   }, []);
 
   async function convert() {
+    if (busyRef.current) return;
     if (!file) {
       openMidiPicker();
       return;
@@ -142,19 +144,19 @@ export default function Home() {
   }
 
   function openMidiPicker() {
-    if (!input.current) return;
+    if (busyRef.current || !input.current) return;
     input.current.value = '';
     input.current.click();
   }
 
   function openProjectPicker() {
-    if (!projectInput.current) return;
+    if (busyRef.current || !projectInput.current) return;
     projectInput.current.value = '';
     projectInput.current.click();
   }
 
   async function loadMidi(selectedFile: File) {
-    setBusy(true);
+    if (!startOperation()) return;
     setError(undefined);
     setWarning(undefined);
     try {
@@ -173,12 +175,12 @@ export default function Home() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setBusy(false);
+      finishOperation();
     }
   }
 
   async function restoreProject(selectedFile: File) {
-    setBusy(true);
+    if (!startOperation()) return;
     setError(undefined);
     setWarning(undefined);
     try {
@@ -186,7 +188,7 @@ export default function Home() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setBusy(false);
+      finishOperation();
     }
   }
 
@@ -212,8 +214,7 @@ export default function Home() {
   }
 
   async function restoreRecentProject() {
-    if (!recentProject) return;
-    setBusy(true);
+    if (!recentProject || !startOperation()) return;
     setError(undefined);
     setWarning(undefined);
     try {
@@ -221,7 +222,7 @@ export default function Home() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setBusy(false);
+      finishOperation();
     }
   }
 
@@ -262,9 +263,8 @@ export default function Home() {
     operation: (client: ConverterWorkerClient) => Promise<SongSnapshot>,
     requestedIndex = activeTrack,
   ) {
-    if (!converter.current) return;
+    if (!converter.current || !startOperation()) return false;
     resetPlaybackForSnapshot();
-    setBusy(true);
     setError(undefined);
     try {
       applySnapshot(await operation(converter.current), requestedIndex);
@@ -273,19 +273,25 @@ export default function Home() {
           sourceName,
           converter.current.getProjectState(),
         );
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+      return false;
     } finally {
-      setBusy(false);
+      finishOperation();
     }
   }
 
   async function updateOptions(patch: Partial<SongOptions>) {
+    if (busyRef.current) return;
     const next = { ...options, ...patch };
-    setOptions(next);
-    savePreferences(next);
-    if (converter.current)
-      await runOperation((client) => client.updateOptions(next));
+    if (converter.current) {
+      if (await runOperation((client) => client.updateOptions(next)))
+        savePreferences(next);
+    } else {
+      setOptions(next);
+      savePreferences(next);
+    }
   }
 
   function renameSelected() {
@@ -396,7 +402,10 @@ export default function Home() {
         }
         mapping[from] = Number(toValue);
       }
-      await runOperation((client) => client.applyKeymap(activeTrack, mapping));
+      const applied = await runOperation((client) =>
+        client.applyKeymap(activeTrack, mapping),
+      );
+      if (!applied) return;
       await saveKeymap('default', mapping);
       setKeymapOpen(false);
     } catch (cause) {
@@ -405,12 +414,15 @@ export default function Home() {
   }
 
   async function clearLocalData() {
+    if (busyRef.current) return;
     if (
       !window.confirm(
         'Clear saved projects, note mappings, and preferences from this browser? The currently open project will remain available until this tab is closed.',
       )
     )
       return;
+    if (!startOperation()) return;
+    setError(undefined);
     try {
       await clearProjectData();
       clearPreferences();
@@ -418,7 +430,21 @@ export default function Home() {
       if (!snapshot) setOptions(defaultSongOptions);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      finishOperation();
     }
+  }
+
+  function startOperation() {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    return true;
+  }
+
+  function finishOperation() {
+    busyRef.current = false;
+    setBusy(false);
   }
 
   useEffect(() => {
@@ -469,6 +495,7 @@ export default function Home() {
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
             event.preventDefault();
+            if (busyRef.current) return;
             const dropped = event.dataTransfer.files[0];
             if (dropped) void loadMidi(dropped);
           }}
@@ -504,6 +531,7 @@ export default function Home() {
               ref={input}
               type="file"
               aria-label="MIDI file"
+              disabled={busy}
               accept=".mid,.midi,audio/midi"
               className="sr-only"
               onChange={(event) => {
@@ -518,13 +546,14 @@ export default function Home() {
               type="file"
               accept=".json,application/json"
               aria-label="Project file"
+              disabled={busy}
               className="sr-only"
               onChange={(event) => {
                 const selected = event.target.files?.[0];
                 if (selected) void restoreProject(selected);
               }}
             />
-            <Button variant="outline" onClick={openMidiPicker}>
+            <Button variant="outline" onClick={openMidiPicker} disabled={busy}>
               <FileUp className="size-4" aria-hidden="true" /> Choose MIDI
             </Button>
             <Button onClick={convert} disabled={busy}>
@@ -543,6 +572,7 @@ export default function Home() {
               size="icon"
               title="Open project"
               aria-label="Open project"
+              disabled={busy}
               onClick={openProjectPicker}
             >
               <FolderOpen className="size-4" aria-hidden="true" />
@@ -562,7 +592,7 @@ export default function Home() {
               size="icon"
               title="Save project"
               aria-label="Save project"
-              disabled={!snapshot}
+              disabled={!snapshot || busy}
               onClick={saveProject}
             >
               <FileDown className="size-4" aria-hidden="true" />
@@ -572,7 +602,7 @@ export default function Home() {
               size="icon"
               title="Export converted code"
               aria-label="Export converted code"
-              disabled={!snapshot}
+              disabled={!snapshot || busy}
               onClick={() =>
                 snapshot &&
                 downloadMml(sourceName ?? 'song.mid', snapshot.tracks)
@@ -790,6 +820,7 @@ export default function Home() {
                   </span>
                   <Switch
                     checked={options.auto_boot_velocity}
+                    disabled={busy}
                     onCheckedChange={(checked) =>
                       void updateOptions({ auto_boot_velocity: checked })
                     }
@@ -804,22 +835,39 @@ export default function Home() {
                   min={0}
                   max={15}
                   step={1}
+                  disabled={busy}
                   onChange={([velocity_min, velocity_max]) =>
                     void updateOptions({ velocity_min, velocity_max })
                   }
                 />
-                <OptionSlider
-                  label="Timing precision"
-                  description="Higher values preserve shorter notes and finer timing."
-                  value={`1/${options.smallest_unit}`}
-                  values={[options.smallest_unit]}
-                  min={16}
-                  max={128}
-                  step={16}
-                  onChange={([smallest_unit]) =>
-                    void updateOptions({ smallest_unit })
-                  }
-                />
+                <div>
+                  <label
+                    className="block text-sm font-medium"
+                    htmlFor="timing-precision"
+                  >
+                    Timing precision
+                  </label>
+                  <p className="mt-1 mb-3 text-xs leading-5 text-muted-foreground">
+                    Higher values preserve shorter notes and finer timing.
+                  </p>
+                  <select
+                    id="timing-precision"
+                    value={options.smallest_unit}
+                    disabled={busy}
+                    onChange={(event) =>
+                      void updateOptions({
+                        smallest_unit: Number(event.target.value),
+                      })
+                    }
+                    className="min-h-11 w-full rounded-xl border bg-background px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm"
+                  >
+                    {[16, 32, 64, 128].map((precision) => (
+                      <option key={precision} value={precision}>
+                        1/{precision}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <OptionSlider
                   label="Chord grouping"
                   description="Controls how close notes must begin to be grouped as a chord."
@@ -828,6 +876,7 @@ export default function Home() {
                   min={0}
                   max={16}
                   step={1}
+                  disabled={busy}
                   onChange={([min_gap_for_chord]) =>
                     void updateOptions({ min_gap_for_chord })
                   }
@@ -835,7 +884,7 @@ export default function Home() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  disabled={!snapshot}
+                  disabled={!snapshot || busy}
                   onClick={() => setKeymapOpen(true)}
                 >
                   <ArrowRightLeft className="size-4" aria-hidden="true" />
@@ -844,6 +893,7 @@ export default function Home() {
                 <Button
                   variant="ghost"
                   className="w-full text-destructive"
+                  disabled={busy}
                   onClick={() => void clearLocalData()}
                 >
                   <Trash2 className="size-4" aria-hidden="true" /> Clear local
@@ -870,6 +920,7 @@ export default function Home() {
                 size="lg"
                 aria-label="Browse for a MIDI file"
                 onClick={openMidiPicker}
+                disabled={busy}
               >
                 <FileUp className="size-4" aria-hidden="true" /> Choose MIDI
               </Button>
@@ -991,6 +1042,7 @@ function OptionSlider({
   min,
   max,
   step,
+  disabled,
   onChange,
 }: {
   label: string;
@@ -1000,6 +1052,7 @@ function OptionSlider({
   min: number;
   max: number;
   step: number;
+  disabled?: boolean;
   onChange: (values: number[]) => void;
 }) {
   return (
@@ -1017,6 +1070,7 @@ function OptionSlider({
         min={min}
         max={max}
         step={step}
+        disabled={disabled}
         onValueChange={(next) =>
           onChange(typeof next === 'number' ? [next] : Array.from(next))
         }

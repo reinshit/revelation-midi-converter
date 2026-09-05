@@ -3,7 +3,9 @@ use crate::{
     mml_event::{BridgeEvent, MidiNoteState, MidiState},
 };
 use midly::{MetaMessage, MidiMessage, Track as MidiTrack, TrackEventKind};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+
+type HeldNotes = HashMap<(u8, u8), VecDeque<MidiNoteState>>;
 
 pub fn bridge_meta_from_midi_track(midi_track: &MidiTrack) -> Vec<BridgeEvent> {
     let mut meta_events: Vec<BridgeEvent> = Vec::new();
@@ -34,7 +36,7 @@ pub fn bridge_meta_from_midi_track(midi_track: &MidiTrack) -> Vec<BridgeEvent> {
 
 pub fn bridge_notes_from_midi_track(midi_track: &MidiTrack) -> Vec<BridgeEvent> {
     let mut note_events: Vec<BridgeEvent> = Vec::new();
-    let mut holding_notes: HashMap<u8, MidiNoteState> = HashMap::new();
+    let mut holding_notes: HeldNotes = HashMap::new();
     let mut current_ticks = 0usize;
 
     for midi_event in midi_track.iter() {
@@ -65,38 +67,53 @@ pub fn bridge_notes_from_midi_track(midi_track: &MidiTrack) -> Vec<BridgeEvent> 
                     if vel > 0 {
                         insert_note(&mut holding_notes, channel, key, vel, current_ticks);
                     } else {
-                        update_note(&mut holding_notes, &mut note_events, key, current_ticks);
+                        update_note(
+                            &mut holding_notes,
+                            &mut note_events,
+                            channel,
+                            key,
+                            current_ticks,
+                        );
                     }
                 }
                 MidiMessage::NoteOff { key, .. } => {
                     let key = key.as_int();
 
-                    update_note(&mut holding_notes, &mut note_events, key, current_ticks);
+                    update_note(
+                        &mut holding_notes,
+                        &mut note_events,
+                        channel,
+                        key,
+                        current_ticks,
+                    );
                 }
                 _ => (),
             }
         }
     }
 
-    for mut note in holding_notes.into_values() {
-        let duration = current_ticks - note.midi_state.position_in_tick;
-        note.midi_state.duration_in_tick = duration;
-        note_events.push(BridgeEvent::Note(note));
+    for notes in holding_notes.into_values() {
+        for mut note in notes {
+            let duration = current_ticks - note.midi_state.position_in_tick;
+            note.midi_state.duration_in_tick = duration;
+            note_events.push(BridgeEvent::Note(note));
+        }
     }
 
     note_events
 }
 
 fn insert_note(
-    holding_notes: &mut HashMap<u8, MidiNoteState>,
+    holding_notes: &mut HeldNotes,
     channel: u8,
     key: u8,
     velocity: u8,
     position_in_tick: usize,
 ) {
-    holding_notes.insert(
-        key,
-        MidiNoteState {
+    holding_notes
+        .entry((channel, key))
+        .or_default()
+        .push_back(MidiNoteState {
             key,
             velocity,
             midi_state: MidiState {
@@ -104,21 +121,28 @@ fn insert_note(
                 position_in_tick,
                 duration_in_tick: 0,
             },
-        },
-    );
+        });
 }
 
 fn update_note(
-    holding_notes: &mut HashMap<u8, MidiNoteState>,
+    holding_notes: &mut HeldNotes,
     events: &mut Vec<BridgeEvent>,
+    channel: u8,
     key: u8,
     position_in_tick: usize,
 ) {
-    if let Some(mut note) = holding_notes.remove(&key) {
+    let note_key = (channel, key);
+    if let Some(notes) = holding_notes.get_mut(&note_key)
+        && let Some(mut note) = notes.pop_front()
+    {
         let duration = position_in_tick - note.midi_state.position_in_tick;
 
         note.midi_state.duration_in_tick = duration;
         events.push(BridgeEvent::Note(note));
+
+        if notes.is_empty() {
+            holding_notes.remove(&note_key);
+        }
     }
 }
 
@@ -312,7 +336,7 @@ mod tests {
             TrackEventKind::Midi {
                 channel: 1.into(),
                 message: MidiMessage::NoteOn {
-                    key: 62.into(),
+                    key: 60.into(),
                     vel: 80.into(),
                 },
             },
@@ -334,7 +358,7 @@ mod tests {
             TrackEventKind::Midi {
                 channel: 1.into(),
                 message: MidiMessage::NoteOff {
-                    key: 62.into(),
+                    key: 60.into(),
                     vel: 0.into(),
                 },
             },
@@ -358,7 +382,7 @@ mod tests {
                         found_ch0 = true;
                     }
                     1 => {
-                        assert_eq!(note_state.key, 62);
+                        assert_eq!(note_state.key, 60);
                         assert_eq!(note_state.velocity, 80);
                         found_ch1 = true;
                     }
@@ -423,22 +447,21 @@ mod tests {
         let track = vec![note_on1, note_on2, note_off1, note_off2];
         let note_events = bridge_notes_from_midi_track(&track);
 
-        // Due to the current implementation using HashMap with key as the key,
-        // overlapping notes with same key will cause issues:
-        // 1. The first note gets overwritten by the second note in the HashMap
-        // 2. The first note_off (at tick 480) ends the second note prematurely
-        // 3. The second note_off does nothing (no note with that key in HashMap)
-        // This is a bug in the current implementation
-        assert_eq!(note_events.len(), 1);
+        assert_eq!(note_events.len(), 2);
 
-        // The remaining note should be the second one, but ended prematurely by first note_off
-        if let BridgeEvent::Note(note_state) = &note_events[0] {
-            assert_eq!(note_state.velocity, 80); // Second note's velocity
-            assert_eq!(note_state.midi_state.position_in_tick, 240); // Second note's start position
-            // Duration is 480 (first note_off position) - 240 (second note start) = 240
-            // This demonstrates the bug: the second note is cut short by the first note's note_off
-            assert_eq!(note_state.midi_state.duration_in_tick, 240);
-        }
+        let notes: Vec<_> = note_events
+            .iter()
+            .filter_map(|event| match event {
+                BridgeEvent::Note(note) => Some(note),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(notes[0].velocity, 64);
+        assert_eq!(notes[0].midi_state.position_in_tick, 0);
+        assert_eq!(notes[0].midi_state.duration_in_tick, 480);
+        assert_eq!(notes[1].velocity, 80);
+        assert_eq!(notes[1].midi_state.position_in_tick, 240);
+        assert_eq!(notes[1].midi_state.duration_in_tick, 480);
     }
 
     #[test]

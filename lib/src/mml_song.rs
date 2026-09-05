@@ -132,19 +132,25 @@ impl MmlSong {
             return Err(anyhow::anyhow!("Cannot equalize the same track"));
         }
 
-        let (slice_a, slice_b) = if index_a < index_b {
-            self.tracks.split_at_mut(index_a + 1)
+        let (track_a, track_b) = if index_a < index_b {
+            let (before_b, from_b) = self.tracks.split_at_mut(index_b);
+            let track_a = before_b
+                .get_mut(index_a)
+                .with_context(|| format!("Cannot get track by index {}", index_a))?;
+            let track_b = from_b
+                .first_mut()
+                .with_context(|| format!("Cannot get track by index {}", index_b))?;
+            (track_a, track_b)
         } else {
-            self.tracks.split_at_mut(index_b + 1)
+            let (before_a, from_a) = self.tracks.split_at_mut(index_a);
+            let track_a = from_a
+                .first_mut()
+                .with_context(|| format!("Cannot get track by index {}", index_a))?;
+            let track_b = before_a
+                .get_mut(index_b)
+                .with_context(|| format!("Cannot get track by index {}", index_b))?;
+            (track_a, track_b)
         };
-
-        let track_a = slice_a
-            .get_mut(index_a)
-            .with_context(|| format!("Cannot get track by index {}", index_a))?;
-
-        let track_b = slice_b
-            .get_mut(index_b - if index_a < index_b { index_a + 1 } else { 0 })
-            .with_context(|| format!("Cannot get track by index {}", index_b))?;
 
         utils::equalize_tracks(track_a, track_b);
         Ok(())

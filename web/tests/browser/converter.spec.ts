@@ -104,6 +104,83 @@ test('resets playback state before showing a replacement conversion', async ({
   await expect(page.getByText('Audio idle', { exact: true })).toBeVisible();
 });
 
+test('aligns tracks regardless of which track is selected first', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles(fixture);
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Convert', exact: true }),
+  ).toBeEnabled();
+
+  const trackButtons = page
+    .getByRole('button')
+    .filter({ hasText: /converted notes/ });
+  await trackButtons.nth(1).click();
+  await page.getByRole('button', { name: 'Align with partner track' }).click();
+
+  await expect(
+    page.getByRole('button', { name: 'Convert', exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('keeps note remapping after conversion settings change', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles({
+    name: 'remap.mid',
+    mimeType: 'audio/midi',
+    buffer: shortTempoMidi,
+  });
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Convert', exact: true }),
+  ).toBeEnabled();
+
+  const output = page.getByRole('textbox', {
+    name: 'Converted MML code',
+    exact: true,
+  });
+  const original = await output.inputValue();
+  await page.getByRole('button', { name: 'Remap notes' }).click();
+  await page.getByLabel('Note mapping in JSON format').fill('{"60":72}');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect.poll(() => output.inputValue()).not.toBe(original);
+  const remapped = await output.inputValue();
+
+  await page
+    .getByRole('slider', { name: /Chord grouping/ })
+    .press('ArrowRight');
+  await expect.poll(() => output.inputValue()).toBe(remapped);
+});
+
+test('only offers timing precision values accepted by the converter', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').first().setInputFiles({
+    name: 'timing.mid',
+    mimeType: 'audio/midi',
+    buffer: shortTempoMidi,
+  });
+  await page.getByRole('button', { name: 'Convert', exact: true }).click();
+  const precision = page.getByRole('combobox', { name: 'Timing precision' });
+  await expect(precision.locator('option')).toHaveText([
+    '1/16',
+    '1/32',
+    '1/64',
+    '1/128',
+  ]);
+  await precision.selectOption('128');
+  await expect(
+    page.getByRole('button', { name: 'Convert', exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
 test('converts, edits, highlights, exports, and restores a MIDI project', async ({
   page,
 }) => {

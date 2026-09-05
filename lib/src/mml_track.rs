@@ -46,13 +46,14 @@ impl MmlTrack {
     }
 
     pub fn apply_keymap(&mut self, keymap: &HashMap<u8, u8>) {
-        for event in &mut self.events {
-            if let MmlEvent::Note(note) = event
-                && let Some(new_midi_key) = keymap.get(&note.midi_state.key)
+        for event in &mut self.bridge_note_events {
+            if let BridgeEvent::Note(note) = event
+                && let Some(new_midi_key) = keymap.get(&note.key)
             {
-                note.apply_keymap(*new_midi_key, self.song_options.smallest_unit);
+                note.key = *new_midi_key;
             }
         }
+        self.generate_mml_events();
     }
 
     pub fn split(&self) -> (Self, Self) {
@@ -300,6 +301,30 @@ mod tests {
         assert!(mml_string.contains("v"));
         assert!(mml_string.contains("o"));
         assert!(mml_string.contains("c4"));
+    }
+
+    #[test]
+    fn test_keymap_survives_event_regeneration() {
+        let options = MmlSongOptions::default();
+        let midi_note = create_test_midi_note_state(60, 64, 0, 480);
+        let mut track = MmlTrack::from_bridge_events(
+            "test".to_string(),
+            vec![],
+            vec![BridgeEvent::Note(midi_note)],
+            options,
+            480,
+        );
+
+        let original = track.to_mml();
+        track.apply_keymap(&HashMap::from([(60, 72)]));
+        let remapped = track.to_mml();
+        assert_ne!(remapped, original);
+
+        track.generate_mml_events();
+        assert_eq!(track.to_mml(), remapped);
+        assert!(track.bridge_note_events.iter().any(|event| {
+            matches!(event, BridgeEvent::Note(note) if note.key == 72)
+        }));
     }
 
     #[test]

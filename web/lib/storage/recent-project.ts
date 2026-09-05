@@ -20,16 +20,33 @@ export async function saveRecentProject(
   state: Omit<StoredProject, 'name' | 'updatedAt'>,
 ) {
   const database = await openDatabase();
-  await transactionPromise(database, projectStoreName, 'readwrite', (store) =>
-    store.put({ ...state, name, updatedAt: Date.now() } satisfies StoredProject, recentKey),
-  );
-  database.close();
+  try {
+    await transactionPromise(database, projectStoreName, 'readwrite', (store) =>
+      store.put(
+        { ...state, name, updatedAt: Date.now() } satisfies StoredProject,
+        recentKey,
+      ),
+    );
+  } finally {
+    database.close();
+  }
 }
 
-export async function loadRecentProject(): Promise<RestoredProject | undefined> {
+export async function loadRecentProject(): Promise<
+  RestoredProject | undefined
+> {
   const database = await openDatabase();
-  const result = await transactionPromise<StoredProject | undefined>(database, projectStoreName, 'readonly', (store) => store.get(recentKey));
-  database.close();
+  let result: StoredProject | undefined;
+  try {
+    result = await transactionPromise<StoredProject | undefined>(
+      database,
+      projectStoreName,
+      'readonly',
+      (store) => store.get(recentKey),
+    );
+  } finally {
+    database.close();
+  }
   if (!result) return undefined;
   return {
     name: result.name,
@@ -39,16 +56,35 @@ export async function loadRecentProject(): Promise<RestoredProject | undefined> 
   };
 }
 
-export async function saveKeymap(name: string, mapping: Record<number, number>) {
+export async function saveKeymap(
+  name: string,
+  mapping: Record<number, number>,
+) {
   const database = await openDatabase();
-  await transactionPromise(database, keymapStoreName, 'readwrite', (store) => store.put(mapping, name));
-  database.close();
+  try {
+    await transactionPromise(database, keymapStoreName, 'readwrite', (store) =>
+      store.put(mapping, name),
+    );
+  } finally {
+    database.close();
+  }
 }
 
-export async function loadKeymap(name: string): Promise<Record<number, number> | undefined> {
+export async function loadKeymap(
+  name: string,
+): Promise<Record<number, number> | undefined> {
   const database = await openDatabase();
-  const result = await transactionPromise<Record<number, number> | undefined>(database, keymapStoreName, 'readonly', (store) => store.get(name));
-  database.close();
+  let result: Record<number, number> | undefined;
+  try {
+    result = await transactionPromise<Record<number, number> | undefined>(
+      database,
+      keymapStoreName,
+      'readonly',
+      (store) => store.get(name),
+    );
+  } finally {
+    database.close();
+  }
   return result;
 }
 
@@ -57,7 +93,8 @@ export function clearProjectData() {
     const request = indexedDB.deleteDatabase(databaseName);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(storageError(request.error));
-    request.onblocked = () => reject(new Error('Close other tabs using this app, then try again.'));
+    request.onblocked = () =>
+      reject(new Error('Close other tabs using this app, then try again.'));
   });
 }
 
@@ -65,8 +102,10 @@ function openDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(databaseName, 2);
     request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(projectStoreName)) request.result.createObjectStore(projectStoreName);
-      if (!request.result.objectStoreNames.contains(keymapStoreName)) request.result.createObjectStore(keymapStoreName);
+      if (!request.result.objectStoreNames.contains(projectStoreName))
+        request.result.createObjectStore(projectStoreName);
+      if (!request.result.objectStoreNames.contains(keymapStoreName))
+        request.result.createObjectStore(keymapStoreName);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(storageError(request.error));
@@ -83,7 +122,9 @@ function transactionPromise<T = IDBValidKey>(
     const transaction = database.transaction(storeName, mode);
     const request = action(transaction.objectStore(storeName));
     let result: T;
-    request.onsuccess = () => { result = request.result; };
+    request.onsuccess = () => {
+      result = request.result;
+    };
     request.onerror = () => reject(storageError(request.error));
     transaction.oncomplete = () => resolve(result);
     transaction.onerror = () => reject(storageError(transaction.error));
@@ -92,6 +133,9 @@ function transactionPromise<T = IDBValidKey>(
 }
 
 function storageError(error: DOMException | null) {
-  if (error?.name === 'QuotaExceededError') return new Error('Browser storage is full. Export the project, then clear local data.');
+  if (error?.name === 'QuotaExceededError')
+    return new Error(
+      'Browser storage is full. Export the project, then clear local data.',
+    );
   return error ?? new Error('The browser storage operation failed');
 }
